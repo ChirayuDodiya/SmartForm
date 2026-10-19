@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartForm Test Form - Job Application</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: #f1f5f9;
+      color: #1e293b;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .form-container {
+      background: white;
+      max-width: 680px;
+      width: 100%;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      color: #0f172a;
+    }
+    p.subtitle {
+      color: #64748b;
+      margin-top: -8px;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      font-size: 14px;
+      color: #334155;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.15s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #0284c7;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+    input[type="file"] {
+      display: block;
+      margin-top: 4px;
+    }
+    .alert-box {
+      background: #e0f2fe;
+      border-left: 4px solid #0284c7;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #0369a1;
+    }
+    .btn-submit {
+      background-color: #0284c7;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-submit:hover {
+      background-color: #0369a1;
+    }
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      background: #e2e8f0;
+      color: #475569;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h1>Senior Software Engineer Application</h1>
+    <p class="subtitle">Use this page to test SmartForm autofill capabilities locally.</p>
+
+    <div class="alert-box">
+      <strong>Test Tip:</strong> SmartForm will detect the fields below. Click into any field to see the suggestion tooltip, or click the SmartForm extension icon in your toolbar.
+    </div>
+
+    <form id="job-app-form">
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="fname">First Name</label>
+          <input type="text" id="fname" name="firstName" placeholder="e.g. Chirayu" autocomplete="given-name" />
+        </div>
+        <div class="form-group">
+          <!-- Testing Alias: "Family Name" -> maps to canonical "Surname" -->
+          <label for="lname">Family Name <span class="badge">Alias: Surname</span></label>
+          <input type="text" id="lname" name="family_name" placeholder="e.g. Dodiya" autocomplete="family-name" />
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <!-- Testing Semantic match: "Email Address" -> "Email" -->
+          <label for="email_field">Email Address</label>
+          <input type="email" id="email_field" name="user_email" placeholder="you@domain.com" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="phone_field">Mobile Phone Number</label>
+          <input type="tel" id="phone_field" name="contact_phone" placeholder="+1 (555) 000-0000" autocomplete="tel" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="linkedin_field">LinkedIn Profile URL</label>
+        <input type="url" id="linkedin_field" name="linkedin_url" placeholder="https://linkedin.com/in/username" />
+      </div>
+
+      <div class="form-group">
+        <!-- Testing Semantic match: "GitHub Profile URL" -> "GitHub" -->
+        <label for="github_field">GitHub Profile URL</label>
+        <input type="url" id="github_field" name="github_url" placeholder="https://github.com/username" />
+      </div>
+
+      <div class="form-group">
+        <label for="portfolio_field">Personal Portfolio / Website</label>
+        <input type="url" id="portfolio_field" name="portfolio" placeholder="https://myportfolio.dev" />
+      </div>
+
+      <div class="form-group">
+        <label for="address_field">Mailing Address</label>
+        <textarea id="address_field" name="street_address" rows="2" placeholder="Street, City, State, ZIP"></textarea>
+      </div>
+
+      <div class="form-group">
+        <!-- Testing Document Upload match: "Upload Your CV" -> Document Category "Resume" -->
+        <label for="resume_upload">Upload Your CV / Resume <span class="badge">Doc: Resume</span></label>
+        <input type="file" id="resume_upload" name="cv_file" accept=".pdf,.docx,.doc" />
+      </div>
+
+      <div class="form-group">
+        <!-- Testing Document Upload match: "Attach Cover Letter" -> Document Category "Cover Letter" -->
+        <label for="cover_letter_upload">Attach Cover Letter <span class="badge">Doc: Cover Letter</span></label>
+        <input type="file" id="cover_letter_upload" name="cover_letter" accept=".pdf,.docx,.txt" />
+      </div>
+
+      <div class="form-group">
+        <!-- Testing Security Rule: PASSWORD FIELDS MUST NEVER BE TOUCHED OR AUTOFILLED! -->
+        <label for="pwd_field">Create Portal Password <span class="badge" style="background:#fee2e2; color:#b91c1c;">Security Check: Never touched</span></label>
+        <input type="password" id="pwd_field" name="portal_password" placeholder="••••••••" />
+      </div>
+
+      <div id="dynamic-container"></div>
+
+      <button type="button" class="btn-secondary" id="btn-add-dynamic">
+        + Simulate Dynamically Rendered Field (SPA Mutation)
+      </button>
+
+      <div>
+        <button type="submit" class="btn-submit">Submit Application</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('btn-add-dynamic').addEventListener('click', () => {
+      const container = document.getElementById('dynamic-container');
+      const div = document.createElement('div');
+      div.className = 'form-group';
+      div.innerHTML = `
+        <label for="dynamic_city">Current City <span class="badge">Injected dynamically</span></label>
+        <input type="text" id="dynamic_city" name="city" placeholder="City name" />
+      `;
+      container.appendChild(div);
+    });
+
+    document.getElementById('job-app-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      alert('Form submitted! (SmartForm never auto-submits)');
+    });
+  </script>
+</body>
+</html>
