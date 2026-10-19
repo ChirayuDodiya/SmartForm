@@ -3,7 +3,6 @@ import { db } from '../storage/db';
 import { downloadBackupFile, restoreBackup } from '../storage/backup';
 import { AppSettings } from '../types';
 import { 
-  ShieldCheck, 
   Download, 
   Upload, 
   AlertTriangle, 

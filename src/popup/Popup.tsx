@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { db } from '../storage/db';
 import { PersonalField, FieldMatch } from '../types';
 import { 
@@ -7,7 +7,6 @@ import {
   Copy, 
   Check, 
   Search, 
-  FileText, 
   ShieldCheck, 
   RefreshCw,
   FolderOpen

@@ -12,7 +12,7 @@ export interface TooltipCallbacks {
   getDocumentById?: (docId: string) => Promise<DocumentRecord | null>;
 }
 
-export function initTooltip(callbacks: TooltipCallbacks) {
+export function initTooltip(_callbacks?: TooltipCallbacks) {
   if (hostElement) return;
 
   hostElement = document.createElement('smartform-suggestion-host');

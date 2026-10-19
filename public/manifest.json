@@ -5,7 +5,8 @@
   "description": "Privacy-first browser autofill with local personal vault, document management, and intelligent field matching.",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "contextMenus"
   ],
   "action": {
     "default_popup": "popup.html",

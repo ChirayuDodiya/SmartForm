@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../storage/db';
 import { AliasMapping, PersonalField } from '../types';
-import { Plus, Trash2, Search, Link2, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, Search, Link2 } from 'lucide-react';
 
 export default function AliasesTab() {
   const [aliases, setAliases] = useState<AliasMapping[]>([]);

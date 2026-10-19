@@ -9,8 +9,7 @@ import {
   Search, 
   PlusCircle, 
   Check, 
-  Sparkles,
-  Tag
+  Sparkles
 } from 'lucide-react';
 
 export default function PersonalFieldsTab() {
@@ -278,7 +277,7 @@ export default function PersonalFieldsTab() {
                 </div>
 
                 <div className="space-y-2">
-                  {values.map((val, idx) => (
+                  {values.map((val) => (
                     <div key={val.id} className="flex items-center gap-2">
                       <input
                         type="text"

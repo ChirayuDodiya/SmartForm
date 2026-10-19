@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PersonalFieldsTab from './PersonalFieldsTab';
 import DocumentsTab from './DocumentsTab';
 import AliasesTab from './AliasesTab';
@@ -8,8 +8,7 @@ import {
   Files, 
   Link2, 
   Settings, 
-  ShieldCheck,
-  CheckCircle2
+  ShieldCheck
 } from 'lucide-react';
 
 type TabType = 'fields' | 'documents' | 'aliases' | 'settings';
