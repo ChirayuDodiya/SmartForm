@@ -5,7 +5,8 @@ import {
   ScannedElement, 
   extractSignals, 
   formatSuggestedFieldName, 
-  formatSuggestedCategory 
+  formatSuggestedCategory,
+  isDropdownOrSelect
 } from './detector';
 import { 
   initTooltip, 
@@ -320,6 +321,11 @@ async function handleFieldChangeOrBlur(e: Event) {
     return;
   }
 
+  // Dropdown menu ignore: NEVER prompt or save dropdown/select values into storage
+  if (target.tagName.toLowerCase() === 'select' || isDropdownOrSelect(target)) {
+    return;
+  }
+
   if (target instanceof HTMLInputElement) {
     // Security Floor: NEVER capture passwords!
     if (target.type === 'password') return;
@@ -410,6 +416,12 @@ async function handleElementInteraction(e: Event) {
     return;
   }
 
+  // Dropdown menu ignore: never show autofill suggestions over dropdowns/selects
+  if (target.tagName.toLowerCase() === 'select' || isDropdownOrSelect(target)) {
+    hideTooltip();
+    return;
+  }
+
   if (target instanceof HTMLInputElement && target.type === 'password') {
     hideTooltip();
     return;
@@ -448,6 +460,9 @@ function autofillRecognizedFields(targetForm: HTMLFormElement | null, forceOverw
     if (targetForm && !targetForm.contains(scanned.element)) continue;
 
     const el = scanned.element;
+
+    // Never autofill dropdowns or selects
+    if (el.tagName.toLowerCase() === 'select' || isDropdownOrSelect(el)) continue;
 
     // Never fill passwords
     if (el instanceof HTMLInputElement && el.type === 'password') continue;

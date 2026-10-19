@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatSuggestedFieldName, formatSuggestedCategory } from '../../content/detector';
+import { formatSuggestedFieldName, formatSuggestedCategory, isDropdownOrSelect } from '../../content/detector';
 import { suggestAliases } from '../aliases';
 import { FieldSignals } from '../../types';
 
@@ -119,3 +119,67 @@ describe('New Field Auto-Detection & Saver Logic', () => {
     expect(aliases).toContain('github url');
   });
 });
+
+describe('Dropdown and Select Exclusion Logic', () => {
+  function createMockElement(
+    tag: string,
+    attrs: Record<string, string> = {},
+    parentClasses: string[] = []
+  ): any {
+    return {
+      tagName: tag.toUpperCase(),
+      getAttribute: (attr: string) => attrs[attr] || null,
+      hasAttribute: (attr: string) => attr in attrs,
+      closest: (selector: string) => {
+        for (const cls of parentClasses) {
+          if (selector.includes(cls)) return {};
+        }
+        return null;
+      }
+    };
+  }
+
+  it('identifies native <select> elements as dropdowns', () => {
+    const el = createMockElement('select');
+    expect(isDropdownOrSelect(el)).toBe(true);
+  });
+
+  it('identifies elements with role="combobox" or role="listbox" as dropdowns', () => {
+    const combobox = createMockElement('input', { role: 'combobox' });
+    const listbox = createMockElement('div', { role: 'listbox' });
+    expect(isDropdownOrSelect(combobox)).toBe(true);
+    expect(isDropdownOrSelect(listbox)).toBe(true);
+  });
+
+  it('identifies elements with aria-haspopup="listbox" or "menu"', () => {
+    const el1 = createMockElement('input', { 'aria-haspopup': 'listbox' });
+    const el2 = createMockElement('input', { 'aria-haspopup': 'menu' });
+    const el3 = createMockElement('input', { 'aria-haspopup': 'true' });
+    expect(isDropdownOrSelect(el1)).toBe(true);
+    expect(isDropdownOrSelect(el2)).toBe(true);
+    expect(isDropdownOrSelect(el3)).toBe(true);
+  });
+
+  it('identifies inputs inside dropdown wrappers (LinkedIn .fb-dropdown, ant-select, etc.)', () => {
+    const linkedInDropdownInput = createMockElement('input', {}, ['fb-dropdown']);
+    expect(isDropdownOrSelect(linkedInDropdownInput)).toBe(true);
+
+    const muiSelectInput = createMockElement('input', {}, ['MuiSelect']);
+    expect(isDropdownOrSelect(muiSelectInput)).toBe(true);
+  });
+
+  it('identifies HTML5 datalist and aria-autocomplete="list"', () => {
+    const elList = createMockElement('input', { list: 'countries' });
+    const elAuto = createMockElement('input', { 'aria-autocomplete': 'list' });
+    expect(isDropdownOrSelect(elList)).toBe(true);
+    expect(isDropdownOrSelect(elAuto)).toBe(true);
+  });
+
+  it('does NOT mark standard inputs or textareas as dropdowns', () => {
+    const normalInput = createMockElement('input', { type: 'text', name: 'firstName' });
+    const textarea = createMockElement('textarea', { name: 'bio' });
+    expect(isDropdownOrSelect(normalInput)).toBe(false);
+    expect(isDropdownOrSelect(textarea)).toBe(false);
+  });
+});
+

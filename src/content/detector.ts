@@ -44,6 +44,32 @@ export function cleanLabelElementText(labelEl: Element): string {
   return cleanRawText(text);
 }
 
+export function isDropdownOrSelect(el: HTMLElement): boolean {
+  if (!el) return false;
+
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'select') return true;
+
+  // ARIA role check (combobox, listbox)
+  const role = el.getAttribute('role')?.toLowerCase();
+  if (role === 'combobox' || role === 'listbox') return true;
+
+  // aria-haspopup="listbox" or "true" or "menu"
+  const ariaHasPopup = el.getAttribute('aria-haspopup')?.toLowerCase();
+  if (ariaHasPopup === 'listbox' || ariaHasPopup === 'true' || ariaHasPopup === 'menu') return true;
+
+  // aria-autocomplete="list" or HTML5 datalist attribute
+  if (el.getAttribute('aria-autocomplete') === 'list') return true;
+  if (el.hasAttribute('list')) return true;
+
+  // Dropdown wrappers (LinkedIn .fb-dropdown, custom UI select/combobox containers)
+  if (el.closest('.fb-dropdown, [class*="dropdown"], [class*="select__control"], [class*="combobox"], [role="combobox"], [class*="ant-select"], [class*="MuiSelect"], [class*="select2"], [class*="choices"]')) {
+    return true;
+  }
+
+  return false;
+}
+
 export function extractSignals(el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): FieldSignals {
   const name = el.getAttribute('name') || '';
   const id = el.getAttribute('id') || '';
@@ -53,7 +79,7 @@ export function extractSignals(el: HTMLInputElement | HTMLSelectElement | HTMLTe
   const autocomplete = el.getAttribute('autocomplete') || '';
   
   let inputType: DetectedInputType = 'text';
-  if (el.tagName.toLowerCase() === 'select') {
+  if (el.tagName.toLowerCase() === 'select' || isDropdownOrSelect(el)) {
     inputType = 'select';
   } else if (el.tagName.toLowerCase() === 'textarea') {
     inputType = 'textarea';
@@ -174,7 +200,8 @@ export function scanPage(options: MatchOptions): ScannedElement[] {
     }
 
     const signals = extractSignals(el);
-    const match = matchField(fieldId, signals, options);
+    // If the field is a dropdown menu, do not match or generate autofill suggestions
+    const match = isDropdownOrSelect(el) ? null : matchField(fieldId, signals, options);
 
     scanned.push({
       id: fieldId,

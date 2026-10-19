@@ -183,6 +183,24 @@
       </div>
 
       <div class="form-group">
+        <!-- Testing Dropdown Ignore Rule: Dropdown menus must NEVER show suggestions or prompt to save -->
+        <label for="country_select">Country / Region <span class="badge" style="background:#fef3c7; color:#92400e;">Dropdown: Ignored (No Suggestions / No Save)</span></label>
+        <select id="country_select" name="country">
+          <option value="">Select country...</option>
+          <option value="US">United States</option>
+          <option value="CA">Canada</option>
+          <option value="UK">United Kingdom</option>
+          <option value="IN">India</option>
+          <option value="DE">Germany</option>
+        </select>
+      </div>
+
+      <div class="form-group fb-dropdown">
+        <label for="work_auth_custom">Work Authorization <span class="badge" style="background:#fef3c7; color:#92400e;">Custom Combobox: Ignored</span></label>
+        <input type="text" id="work_auth_custom" role="combobox" aria-haspopup="listbox" placeholder="Select authorization..." />
+      </div>
+
+      <div class="form-group">
         <!-- Testing Unrecognized Fields: Prompt to Save to Vault -->
         <label for="emergency_contact">Emergency Contact <span class="badge" style="background:#e0f2fe; color:#0369a1;">Unrecognized: Type to test Save Prompt</span></label>
         <input type="text" id="emergency_contact" name="emergency_contact" placeholder="Type a contact (e.g. John Doe +1-555-0199) and blur/tab out..." />
@@ -243,6 +261,14 @@
         <div class="form-group">
           <label for="modal_phone">Phone Number</label>
           <input type="tel" id="modal_phone" name="phone" placeholder="Phone" autocomplete="tel" />
+        </div>
+        <div class="form-group fb-dropdown">
+          <label for="modal_country_code">Phone Country Code <span class="badge" style="background:#fef3c7; color:#92400e;">Dropdown: Ignored</span></label>
+          <select id="modal_country_code" name="country_code">
+            <option value="+1">United States (+1)</option>
+            <option value="+91">India (+91)</option>
+            <option value="+44">United Kingdom (+44)</option>
+          </select>
         </div>
         <div class="form-group">
           <label for="modal_salary">Expected Annual Salary <span class="badge" style="background:#e0f2fe; color:#0369a1;">Unrecognized Field</span></label>
