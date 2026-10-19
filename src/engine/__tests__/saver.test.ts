@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { formatSuggestedFieldName, formatSuggestedCategory, isDropdownOrSelect } from '../../content/detector';
+import { 
+  formatSuggestedFieldName, 
+  formatSuggestedCategory, 
+  isDropdownOrSelect,
+  isSearchInput,
+  isMediaOrEntertainmentSite
+} from '../../content/detector';
 import { suggestAliases } from '../aliases';
 import { FieldSignals } from '../../types';
 
@@ -182,4 +188,89 @@ describe('Dropdown and Select Exclusion Logic', () => {
     expect(isDropdownOrSelect(textarea)).toBe(false);
   });
 });
+
+describe('Search Input and Media Site Exclusion Logic', () => {
+  function createMockElement(
+    tag: string,
+    attrs: Record<string, string> = {},
+    parentClasses: string[] = []
+  ): any {
+    return {
+      tagName: tag.toUpperCase(),
+      type: attrs.type || (tag.toLowerCase() === 'input' ? 'text' : undefined),
+      getAttribute: (attr: string) => attrs[attr] || null,
+      hasAttribute: (attr: string) => attr in attrs,
+      closest: (selector: string) => {
+        for (const cls of parentClasses) {
+          if (selector.includes(cls)) return {};
+        }
+        if (attrs.role && selector.includes(`[role="${attrs.role}"]`)) return {};
+        if (attrs['data-testid'] && selector.includes(`[data-testid*="${attrs['data-testid']}"]`)) return {};
+        return null;
+      }
+    };
+  }
+
+  it('identifies native type="search" as a search input', () => {
+    const el = createMockElement('input', { type: 'search' });
+    expect(isSearchInput(el)).toBe(true);
+  });
+
+  it('identifies role="searchbox" and role="search" as search inputs', () => {
+    const el1 = createMockElement('input', { role: 'searchbox' });
+    const el2 = createMockElement('input', { role: 'search' });
+    expect(isSearchInput(el1)).toBe(true);
+    expect(isSearchInput(el2)).toBe(true);
+  });
+
+  it('identifies YouTube search bar by id, name, or ytd-searchbox class', () => {
+    const ytInput = createMockElement('input', { id: 'search', name: 'search_query', placeholder: 'Search' }, ['ytd-searchbox']);
+    expect(isSearchInput(ytInput)).toBe(true);
+  });
+
+  it('identifies Spotify search bar by data-testid and "What do you want to play?" placeholder', () => {
+    const spotifyInput = createMockElement('input', {
+      'data-testid': 'search-input',
+      role: 'searchbox',
+      placeholder: 'What do you want to play?'
+    });
+    expect(isSearchInput(spotifyInput)).toBe(true);
+  });
+
+  it('identifies inputs wrapped in search forms or search-box classes', () => {
+    const wrappedInput = createMockElement('input', {}, ['search-box']);
+    expect(isSearchInput(wrappedInput)).toBe(true);
+  });
+
+  it('does NOT flag ordinary form inputs as search inputs', () => {
+    const nameInput = createMockElement('input', { name: 'firstName', id: 'fname', placeholder: 'First Name' });
+    const emailInput = createMockElement('input', { name: 'email', type: 'email', placeholder: 'you@domain.com' });
+    expect(isSearchInput(nameInput)).toBe(false);
+    expect(isSearchInput(emailInput)).toBe(false);
+  });
+
+  it('correctly identifies media platforms and allows their settings/account pages', () => {
+    const originalWindow = globalThis.window;
+
+    // Simulate YouTube watch page
+    (globalThis as any).window = { location: { hostname: 'www.youtube.com', pathname: '/watch' } };
+    expect(isMediaOrEntertainmentSite()).toBe(true);
+
+    // Simulate Spotify player
+    (globalThis as any).window = { location: { hostname: 'open.spotify.com', pathname: '/search' } };
+    expect(isMediaOrEntertainmentSite()).toBe(true);
+
+    // Simulate Spotify account page (should allow)
+    (globalThis as any).window = { location: { hostname: 'www.spotify.com', pathname: '/account/overview' } };
+    expect(isMediaOrEntertainmentSite()).toBe(false);
+
+    // Simulate normal website (e.g. greenhouse job application)
+    (globalThis as any).window = { location: { hostname: 'boards.greenhouse.io', pathname: '/company/jobs/123' } };
+    expect(isMediaOrEntertainmentSite()).toBe(false);
+
+    // Restore window
+    (globalThis as any).window = originalWindow;
+  });
+});
+
 

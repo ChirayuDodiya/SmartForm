@@ -6,7 +6,9 @@ import {
   extractSignals, 
   formatSuggestedFieldName, 
   formatSuggestedCategory,
-  isDropdownOrSelect
+  isDropdownOrSelect,
+  isSearchInput,
+  isMediaOrEntertainmentSite
 } from './detector';
 import { 
   initTooltip, 
@@ -198,20 +200,6 @@ function isValueInRecords(val: string): boolean {
   return false;
 }
 
-function isSearchInput(el: HTMLElement, signals: FieldSignals): boolean {
-  if (el instanceof HTMLInputElement && el.type === 'search') return true;
-  if (el.getAttribute('role') === 'searchbox') return true;
-  const nameLower = (signals.name || '').toLowerCase();
-  if (['q', 'query', 'search', 'keyword', 'keywords', 'search_query', 's'].includes(nameLower)) {
-    return true;
-  }
-  const combined = `${signals.name} ${signals.id} ${signals.placeholder}`.toLowerCase();
-  if (combined.includes('search') && !combined.includes('research')) {
-    return true;
-  }
-  return false;
-}
-
 function isOtpOrCaptcha(signals: FieldSignals): boolean {
   if (signals.autocomplete === 'one-time-code') return true;
   const combined = `${signals.name} ${signals.id} ${signals.placeholder} ${signals.labelText}`.toLowerCase();
@@ -276,6 +264,11 @@ async function initContentScript() {
 }
 
 function performScan() {
+  if (isMediaOrEntertainmentSite()) {
+    hideAutofillPill();
+    return;
+  }
+
   scannedElements = scanPage({
     fields: cachedFields,
     userAliases: cachedAliases,
@@ -321,8 +314,13 @@ async function handleFieldChangeOrBlur(e: Event) {
     return;
   }
 
-  // Dropdown menu ignore: NEVER prompt or save dropdown/select values into storage
-  if (target.tagName.toLowerCase() === 'select' || isDropdownOrSelect(target)) {
+  // Media / Entertainment site ignore: never prompt to save searches or media on YouTube, Spotify, etc.
+  if (isMediaOrEntertainmentSite()) {
+    return;
+  }
+
+  // Dropdown menu & Search bar ignore: NEVER prompt or save dropdown/search values into storage
+  if (target.tagName.toLowerCase() === 'select' || isDropdownOrSelect(target) || isSearchInput(target)) {
     return;
   }
 
@@ -416,8 +414,14 @@ async function handleElementInteraction(e: Event) {
     return;
   }
 
-  // Dropdown menu ignore: never show autofill suggestions over dropdowns/selects
-  if (target.tagName.toLowerCase() === 'select' || isDropdownOrSelect(target)) {
+  // Media / Entertainment site ignore: never show suggestions on YouTube, Spotify, etc.
+  if (isMediaOrEntertainmentSite()) {
+    hideTooltip();
+    return;
+  }
+
+  // Dropdown menu & Search bar ignore: never show autofill suggestions over dropdowns/selects or search bars
+  if (target.tagName.toLowerCase() === 'select' || isDropdownOrSelect(target) || isSearchInput(target)) {
     hideTooltip();
     return;
   }
@@ -461,8 +465,8 @@ function autofillRecognizedFields(targetForm: HTMLFormElement | null, forceOverw
 
     const el = scanned.element;
 
-    // Never autofill dropdowns or selects
-    if (el.tagName.toLowerCase() === 'select' || isDropdownOrSelect(el)) continue;
+    // Never autofill dropdowns, selects, or search inputs
+    if (el.tagName.toLowerCase() === 'select' || isDropdownOrSelect(el) || isSearchInput(el)) continue;
 
     // Never fill passwords
     if (el instanceof HTMLInputElement && el.type === 'password') continue;

@@ -20,6 +20,35 @@ export interface MatchOptions {
   documents?: DocumentRecord[];
 }
 
+export const PERSONAL_NAME_CANONICALS = new Set(['First Name', 'Surname', 'Full Name']);
+
+/**
+ * Detects if a field is explicitly for non-human/non-personal entities
+ * (repositories, projects, packages, databases, servers, playlists, etc.).
+ * Personal names should NEVER match these fields.
+ */
+export function isNonPersonalEntityField(signals: FieldSignals): boolean {
+  const combined = [
+    signals.labelText,
+    signals.name,
+    signals.id,
+    signals.placeholder,
+    signals.ariaLabel,
+    signals.cleanNameKeyword,
+    signals.cleanIdKeyword
+  ].join(' ').toLowerCase();
+
+  // If explicitly referencing human name terms (first, last, given, family, surname, applicant, candidate), it is personal!
+  if (/\b(first|last|given|family|surname|applicant|candidate|person|personal)\b/i.test(combined)) {
+    return false;
+  }
+
+  // Common non-human technical, project, repository, software, or media entities
+  const nonPersonalRegex = /\b(repo|repository|project|package|branch|commit|filename|folder|directory|cluster|hostname|database|table|column|schema|variable|domain|server|workspace|tenant|playlist|song|track|artist|album|service|resource|pipeline|secret|token)\b/i;
+
+  return nonPersonalRegex.test(combined);
+}
+
 /**
  * Matches a detected form field's signals to saved personal fields or documents.
  * Prioritizes: Exact key -> User alias -> Built-in alias -> Autocomplete -> Semantic / File.
@@ -41,6 +70,8 @@ export function matchField(
     return matchDocumentField(fieldId, signals, options.documents || []);
   }
 
+  const isNonPersonal = isNonPersonalEntityField(signals);
+
   // Collect all searchable textual signals from the DOM element
   const signalTexts = [
     signals.labelText,
@@ -61,6 +92,7 @@ export function matchField(
 
   // 2. Exact Canonical Key Match (Confidence: 100)
   for (const field of options.fields) {
+    if (isNonPersonal && PERSONAL_NAME_CANONICALS.has(field.key)) continue;
     const normalizedKey = normalizeText(field.key);
     for (const signal of normalizedSignals) {
       if (signal === normalizedKey) {
@@ -71,6 +103,7 @@ export function matchField(
 
   // 3. User-Configured Alias Match (Confidence: 95)
   for (const userAlias of options.userAliases) {
+    if (isNonPersonal && PERSONAL_NAME_CANONICALS.has(userAlias.canonicalKey)) continue;
     const normalizedAlias = normalizeText(userAlias.alias);
     for (const signal of normalizedSignals) {
       if (signal === normalizedAlias) {
@@ -90,6 +123,7 @@ export function matchField(
 
   // 4. Built-in Alias Match (Confidence: 90)
   for (const group of BUILTIN_ALIAS_GROUPS) {
+    if (isNonPersonal && PERSONAL_NAME_CANONICALS.has(group.canonicalKey)) continue;
     const field = options.fields.find(f => normalizeText(f.key) === normalizeText(group.canonicalKey));
     if (!field) continue;
 
@@ -113,7 +147,7 @@ export function matchField(
   if (signals.autocomplete) {
     const autoToken = signals.autocomplete.toLowerCase().trim();
     const canonicalKey = AUTOCOMPLETE_TO_CANONICAL[autoToken];
-    if (canonicalKey) {
+    if (canonicalKey && (!isNonPersonal || !PERSONAL_NAME_CANONICALS.has(canonicalKey))) {
       const field = options.fields.find(f => normalizeText(f.key) === normalizeText(canonicalKey));
       if (field) {
         return buildFieldMatch(
@@ -130,6 +164,7 @@ export function matchField(
   // 6. Semantic / Partial Token Match (Confidence: 75)
   // Check if signal tokens strongly contain the canonical key or known alias tokens
   for (const field of options.fields) {
+    if (isNonPersonal && PERSONAL_NAME_CANONICALS.has(field.key)) continue;
     const keyTokens = tokenize(field.key);
     for (const signal of normalizedSignals) {
       const signalTokens = tokenize(signal);
@@ -137,6 +172,14 @@ export function matchField(
       // If every token of the key is contained in the signal, and signal is specific
       const allTokensMatch = keyTokens.length > 0 && keyTokens.every(k => signalTokens.includes(k));
       if (allTokensMatch) {
+        // Prevent generic single-token 'name' from matching arbitrary phrases without personal qualifiers
+        if (keyTokens.length === 1 && keyTokens[0] === 'name') {
+          const hasPersonalModifier = signalTokens.some(t =>
+            ['full', 'first', 'last', 'given', 'family', 'middle', 'your', 'candidate', 'applicant', 'legal', 'person', 'contact', 'customer', 'user'].includes(t)
+          );
+          if (!hasPersonalModifier) continue;
+        }
+
         return buildFieldMatch(
           fieldId,
           field,
@@ -150,6 +193,7 @@ export function matchField(
 
   // Also check built-in aliases for semantic containment (e.g. "user_email" -> contains "email")
   for (const group of BUILTIN_ALIAS_GROUPS) {
+    if (isNonPersonal && PERSONAL_NAME_CANONICALS.has(group.canonicalKey)) continue;
     const field = options.fields.find(f => normalizeText(f.key) === normalizeText(group.canonicalKey));
     if (!field) continue;
 
@@ -158,6 +202,14 @@ export function matchField(
       for (const signal of normalizedSignals) {
         const signalTokens = tokenize(signal);
         if (aliasTokens.length > 0 && aliasTokens.every(k => signalTokens.includes(k))) {
+          // Prevent generic single-token 'name' from matching arbitrary compound phrases without personal qualifiers
+          if (aliasTokens.length === 1 && aliasTokens[0] === 'name') {
+            const hasPersonalModifier = signalTokens.some(t =>
+              ['full', 'first', 'last', 'given', 'family', 'middle', 'your', 'candidate', 'applicant', 'legal', 'person', 'contact', 'customer', 'user'].includes(t)
+            );
+            if (!hasPersonalModifier) continue;
+          }
+
           return buildFieldMatch(
             fieldId,
             field,

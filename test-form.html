@@ -210,6 +210,17 @@
         <label for="favorite_tech">Preferred Tech Stack <span class="badge" style="background:#e0f2fe; color:#0369a1;">Unrecognized: Type to test Save Prompt</span></label>
         <input type="text" id="favorite_tech" name="favorite_tech" placeholder="e.g. React, TypeScript, Node.js" />
       </div>
+      <div class="form-group">
+        <!-- Testing Non-Personal Name Exclusion: GitHub Repository Name must NEVER match user's name -->
+        <label for="repository_name">Repository Name <span class="badge" style="background:#f1f5f9; color:#475569;">Non-Personal: Never matches user's name</span></label>
+        <input type="text" id="repository_name" name="repository[name]" placeholder="e.g. my-awesome-project" />
+      </div>
+
+      <div class="form-group">
+        <!-- Testing Search Input Exclusion: Search bars must NEVER trigger autofill or save prompt -->
+        <label for="site_search">Site Search Bar <span class="badge" style="background:#f1f5f9; color:#475569;">Search Bar: Ignored (YouTube/Spotify style)</span></label>
+        <input type="search" id="site_search" name="search_query" role="searchbox" placeholder="Search videos or songs..." />
+      </div>
 
       <div class="form-group">
         <!-- Testing Security Rule: PASSWORD FIELDS MUST NEVER BE TOUCHED OR AUTOFILLED! -->

@@ -333,5 +333,81 @@ describe('Matching Engine', () => {
     expect(match?.matchedCanonicalKey).toBe('Surname');
     expect(match?.candidates[0].value).toBe('Morgan');
   });
+
+  it('does NOT match personal name fields to GitHub repository name, project name, or system inputs', () => {
+    // Exact GitHub new repo input signals
+    const githubRepoInput: FieldSignals = {
+      name: 'repository[name]',
+      id: 'repository_name',
+      placeholder: 'e.g. my-awesome-project',
+      ariaLabel: '',
+      ariaLabelledBy: '',
+      autocomplete: '',
+      labelText: 'Repository name',
+      surroundingText: '',
+      inputType: 'text',
+      cleanNameKeyword: 'repository name',
+      cleanIdKeyword: 'repository name'
+    };
+
+    const match = matchField('gh-repo', githubRepoInput, { fields: sampleFields, userAliases: sampleAliases });
+    expect(match).toBeNull();
+
+    // Short repo name
+    const shortRepoInput: FieldSignals = {
+      name: 'repo_name',
+      id: 'repo_name',
+      placeholder: '',
+      ariaLabel: '',
+      ariaLabelledBy: '',
+      autocomplete: '',
+      labelText: 'Repo name',
+      surroundingText: '',
+      inputType: 'text'
+    };
+    expect(matchField('short-repo', shortRepoInput, { fields: sampleFields, userAliases: sampleAliases })).toBeNull();
+
+    // Project name
+    const projectInput: FieldSignals = {
+      name: 'project_name',
+      id: 'project_name',
+      placeholder: 'Enter project name',
+      ariaLabel: '',
+      ariaLabelledBy: '',
+      autocomplete: '',
+      labelText: 'Project name',
+      surroundingText: '',
+      inputType: 'text'
+    };
+    expect(matchField('project-name', projectInput, { fields: sampleFields, userAliases: sampleAliases })).toBeNull();
+
+    // Database name
+    const dbInput: FieldSignals = {
+      name: 'db_name',
+      id: 'database_name',
+      placeholder: '',
+      ariaLabel: '',
+      ariaLabelledBy: '',
+      autocomplete: '',
+      labelText: 'Database name',
+      surroundingText: '',
+      inputType: 'text'
+    };
+    expect(matchField('db-name', dbInput, { fields: sampleFields, userAliases: sampleAliases })).toBeNull();
+
+    // Playlist name (e.g. Spotify)
+    const playlistInput: FieldSignals = {
+      name: 'playlist_name',
+      id: 'playlist_name',
+      placeholder: 'My Playlist #1',
+      ariaLabel: '',
+      ariaLabelledBy: '',
+      autocomplete: '',
+      labelText: 'Playlist name',
+      surroundingText: '',
+      inputType: 'text'
+    };
+    expect(matchField('playlist-name', playlistInput, { fields: sampleFields, userAliases: sampleAliases })).toBeNull();
+  });
 });
 
