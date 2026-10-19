@@ -7,7 +7,14 @@ import {
   formatSuggestedFieldName, 
   formatSuggestedCategory 
 } from './detector';
-import { initTooltip, showTooltip, hideTooltip, showSavePrompt } from './tooltip';
+import { 
+  initTooltip, 
+  showTooltip, 
+  hideTooltip, 
+  showSavePrompt,
+  showAutofillPill,
+  hideAutofillPill
+} from './tooltip';
 import { fillTextInput, fillFileInput } from './injector';
 import { suggestAliases } from '../engine/aliases';
 
@@ -32,20 +39,25 @@ let scannedElements: ScannedElement[] = [];
  */
 async function syncVaultData(): Promise<void> {
   return new Promise((resolve) => {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage({ type: 'GET_VAULT_DATA' }, (response) => {
-        if (!chrome.runtime.lastError && response?.success) {
-          cachedFields = response.fields || [];
-          cachedAliases = response.aliases || [];
-          cachedDocs = response.documents || [];
-          if (response.settings) cachedSettings = response.settings;
-          performScan();
-          resolve();
-          return;
-        }
-        // Fallback if background worker unavailable
+    // If extension context was invalidated by an extension reload in chrome://extensions/
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage) {
+      try {
+        chrome.runtime.sendMessage({ type: 'GET_VAULT_DATA' }, (response) => {
+          if (!chrome.runtime.lastError && response?.success) {
+            cachedFields = response.fields || [];
+            cachedAliases = response.aliases || [];
+            cachedDocs = response.documents || [];
+            if (response.settings) cachedSettings = response.settings;
+            performScan();
+            resolve();
+            return;
+          }
+          fallbackToLocalDb().then(resolve);
+        });
+      } catch (err) {
+        console.info('[SmartForm] Extension reloaded. Please refresh tab (F5) to re-attach.');
         fallbackToLocalDb().then(resolve);
-      });
+      }
     } else {
       fallbackToLocalDb().then(resolve);
     }
@@ -66,15 +78,19 @@ async function fallbackToLocalDb() {
 }
 
 async function fetchDocumentById(docId: string): Promise<DocumentRecord | null> {
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+  if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage) {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'GET_DOCUMENT_DATA', docId }, (response) => {
-        if (!chrome.runtime.lastError && response?.success && response.doc) {
-          resolve(response.doc);
-        } else {
-          db.getDocument(docId).then(resolve);
-        }
-      });
+      try {
+        chrome.runtime.sendMessage({ type: 'GET_DOCUMENT_DATA', docId }, (response) => {
+          if (!chrome.runtime.lastError && response?.success && response.doc) {
+            resolve(response.doc);
+          } else {
+            db.getDocument(docId).then(resolve);
+          }
+        });
+      } catch {
+        db.getDocument(docId).then(resolve);
+      }
     });
   }
   return db.getDocument(docId);
@@ -88,14 +104,18 @@ async function saveAliasThroughBackground(canonicalKey: string, aliasText: strin
     isBuiltIn: false
   };
 
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-    chrome.runtime.sendMessage({ type: 'SAVE_ALIAS', alias }, () => {
-      syncVaultData();
-    });
-  } else {
-    await db.saveAlias(alias);
-    await syncVaultData();
+  if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage) {
+    try {
+      chrome.runtime.sendMessage({ type: 'SAVE_ALIAS', alias }, () => {
+        syncVaultData();
+      });
+      return;
+    } catch {
+      // Fall through to local db
+    }
   }
+  await db.saveAlias(alias);
+  await syncVaultData();
 }
 
 async function saveNewFieldThroughBackground(
@@ -103,22 +123,26 @@ async function saveNewFieldThroughBackground(
   value: string,
   category: string
 ): Promise<void> {
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        {
-          type: 'SAVE_NEW_FIELD',
-          canonicalKey,
-          value,
-          category,
-          label: 'Primary'
-        },
-        () => {
-          syncVaultData().then(resolve);
-        }
-      );
-    });
-  } else {
+  if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage) {
+    try {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          {
+            type: 'SAVE_NEW_FIELD',
+            canonicalKey,
+            value,
+            category,
+            label: 'Primary'
+          },
+          () => {
+            syncVaultData().then(resolve);
+          }
+        );
+      });
+    } catch {
+      // Fall through to local db
+    }
+  }
     // Standalone fallback
     let field = cachedFields.find(f => f.key.toLowerCase() === canonicalKey.toLowerCase());
     if (field) {
@@ -160,7 +184,6 @@ async function saveNewFieldThroughBackground(
     }
     await syncVaultData();
   }
-}
 
 function isValueInRecords(val: string): boolean {
   const lower = val.toLowerCase().trim();
@@ -257,6 +280,20 @@ function performScan() {
     userAliases: cachedAliases,
     documents: cachedDocs
   });
+
+  const matched = scannedElements.filter(s => s.match !== null && s.match.candidates.length > 0);
+  if (matched.length > 0) {
+    const modalEl = document.querySelector('[role="dialog"], .jobs-easy-apply-modal, .artdeco-modal, dialog') as HTMLElement;
+    showAutofillPill(
+      matched.length,
+      () => {
+        autofillRecognizedFields(null, true);
+      },
+      modalEl
+    );
+  } else {
+    hideAutofillPill();
+  }
 }
 
 function attachEventListeners() {

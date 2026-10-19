@@ -10,6 +10,40 @@ export interface ScannedElement {
 
 let elementCounter = 0;
 
+
+export function cleanRawText(raw: string): string {
+  let text = (raw || '').trim();
+
+  // Strip duplicate consecutive word sequences (e.g. LinkedIn's "First nameFirst name" or "Email address Email address")
+  text = text.replace(/([A-Za-z0-9\s]{2,30}?)\s*\1+/i, '$1').trim();
+
+  // Strip common accessibility and filler noise: "Required", "Optional", asterisks, colons
+  text = text.replace(/\b(required|optional|please enter|enter your|type your)\b/gi, '').replace(/[*:#]/g, '').trim();
+
+  return text;
+}
+
+export function cleanLabelElementText(labelEl: Element): string {
+  // If the label contains an aria-hidden span (which LinkedIn uses for the visible text):
+  const ariaHiddenSpan = labelEl.querySelector('span[aria-hidden="true"]');
+  if (ariaHiddenSpan && ariaHiddenSpan.textContent?.trim()) {
+    return cleanRawText(ariaHiddenSpan.textContent);
+  }
+
+  // Clone to avoid mutating live DOM
+  const clone = labelEl.cloneNode(true) as HTMLElement;
+  // Remove visually hidden / screen reader duplicate spans
+  clone.querySelectorAll('.visually-hidden, .sr-only, [class*="visually-hidden"], [class*="sr-only"]').forEach(e => e.remove());
+  clone.querySelectorAll('input, select, textarea').forEach(e => e.remove());
+
+  let text = clone.textContent || '';
+  if (!text.trim()) {
+    text = labelEl.textContent || '';
+  }
+
+  return cleanRawText(text);
+}
+
 export function extractSignals(el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): FieldSignals {
   const name = el.getAttribute('name') || '';
   const id = el.getAttribute('id') || '';
@@ -33,53 +67,87 @@ export function extractSignals(el: HTMLInputElement | HTMLSelectElement | HTMLTe
     }
   }
 
-  // Find associated label text
+  // 1. Find associated label text via for=id
   let labelText = '';
   if (id) {
-    const labelEl = document.querySelector(`label[for="${CSS.escape(id)}"]`);
-    if (labelEl) {
-      labelText = labelEl.textContent || '';
+    try {
+      const labelEl = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+      if (labelEl) {
+        labelText = cleanLabelElementText(labelEl);
+      }
+    } catch {
+      const allLabels = document.getElementsByTagName('label');
+      for (let i = 0; i < allLabels.length; i++) {
+        if (allLabels[i].getAttribute('for') === id) {
+          labelText = cleanLabelElementText(allLabels[i]);
+          break;
+        }
+      }
     }
   }
 
+  // 2. Wrapping label
   if (!labelText) {
-    // Check wrapping label
     const parentLabel = el.closest('label');
     if (parentLabel) {
-      // Clone and remove inputs to get clean label text
-      const clone = parentLabel.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll('input, select, textarea').forEach(e => e.remove());
-      labelText = clone.textContent || '';
+      labelText = cleanLabelElementText(parentLabel);
     }
   }
 
+  // 3. ARIA labelledby (supports space-separated multiple IDs)
   if (!labelText && ariaLabelledBy) {
-    const labelByEl = document.getElementById(ariaLabelledBy);
-    if (labelByEl) {
-      labelText = labelByEl.textContent || '';
+    const ids = ariaLabelledBy.split(/\s+/).filter(Boolean);
+    const texts: string[] = [];
+    for (const labelId of ids) {
+      const item = document.getElementById(labelId);
+      if (item) texts.push(cleanLabelElementText(item));
     }
+    labelText = texts.join(' ').trim();
   }
 
-  // Surrounding contextual text (e.g. preceding sibling or parent container title)
+  // 4. Surrounding contextual text and parent form block headers (supports LinkedIn .fb-single-line-text, etc.)
   let surroundingText = '';
-  const parentContainer = el.closest('.form-group, .field, [class*="form-"], [class*="input-"], div');
+  const parentContainer = el.closest(
+    '.fb-single-line-text, .fb-dropdown, .fb-multiline-text, .jobs-easy-apply-form-section, .form-group, .field, [class*="form-"], [class*="input-"], div'
+  );
   if (parentContainer) {
-    const heading = parentContainer.querySelector('h1, h2, h3, h4, h5, h6, strong, span');
+    if (!labelText) {
+      const labelInside = parentContainer.querySelector('label, [class*="label"], legend, span[class*="title"], strong');
+      if (labelInside && labelInside !== el && !labelInside.contains(el)) {
+        labelText = cleanLabelElementText(labelInside);
+      }
+    }
+    const heading = parentContainer.querySelector('h1, h2, h3, h4, h5, h6, strong');
     if (heading && heading !== el) {
       surroundingText = heading.textContent || '';
     }
+  }
+
+  // Extract clean keyword from compound URN names or IDs (e.g. LinkedIn's urn:li:...:firstName or ...-firstName)
+  let cleanIdKeyword = '';
+  if (id) {
+    const parts = id.split(/[-_:,()]+/).filter(p => p.length > 1 && isNaN(Number(p)));
+    cleanIdKeyword = parts.pop() || '';
+  }
+
+  let cleanNameKeyword = '';
+  if (name) {
+    const parts = name.split(/[-_:,()]+/).filter(p => p.length > 1 && isNaN(Number(p)));
+    cleanNameKeyword = parts.pop() || '';
   }
 
   return {
     name,
     id,
     placeholder,
-    ariaLabel,
+    ariaLabel: cleanRawText(ariaLabel),
     ariaLabelledBy,
     autocomplete,
     labelText: labelText.trim(),
     surroundingText: surroundingText.trim(),
-    inputType
+    inputType,
+    cleanNameKeyword,
+    cleanIdKeyword
   };
 }
 

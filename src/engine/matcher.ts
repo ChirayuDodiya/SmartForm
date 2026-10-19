@@ -46,10 +46,12 @@ export function matchField(
     signals.labelText,
     signals.ariaLabel,
     signals.placeholder,
+    signals.cleanNameKeyword,
+    signals.cleanIdKeyword,
     signals.name,
     signals.id,
     signals.surroundingText
-  ].filter(t => Boolean(t && t.trim()));
+  ].filter((t): t is string => Boolean(t && t.trim()));
 
   const normalizedSignals = signalTexts.map(t => normalizeText(t)).filter(Boolean);
 

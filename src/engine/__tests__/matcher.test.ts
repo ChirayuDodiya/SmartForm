@@ -290,4 +290,48 @@ describe('Matching Engine', () => {
     const match = matchField('pwd-input', signals, { fields: sampleFields, userAliases: sampleAliases });
     expect(match).toBeNull();
   });
+
+  it('matches LinkedIn Easy Apply inputs with compound URN names and IDs', () => {
+    // Exact structure used by LinkedIn Easy Apply
+    const linkedInFirstName: FieldSignals = {
+      name: 'urn:li:fs_easyApplyFormElement:(urn:li:fs_normalized_jobPosting:394829384,1,firstName)',
+      id: 'single-line-text-form-component-formElement-urn-li-jobs-applyformcommon-easyApplyFormElement-394829384-1-firstName',
+      placeholder: '',
+      ariaLabel: '',
+      ariaLabelledBy: '',
+      autocomplete: '',
+      labelText: 'First name',
+      surroundingText: '',
+      inputType: 'text',
+      cleanNameKeyword: 'firstName',
+      cleanIdKeyword: 'firstName'
+    };
+
+    const match = matchField('li-fname', linkedInFirstName, { fields: sampleFields, userAliases: sampleAliases });
+    expect(match).not.toBeNull();
+    expect(match?.matchedCanonicalKey).toBe('First Name');
+    expect(match?.candidates[0].value).toBe('Alex');
+  });
+
+  it('matches LinkedIn Easy Apply inputs with compound URN lastName to Surname', () => {
+    const linkedInLastName: FieldSignals = {
+      name: 'urn:li:fs_easyApplyFormElement:(urn:li:fs_normalized_jobPosting:394829384,1,lastName)',
+      id: 'single-line-text-form-component-formElement-urn-li-jobs-applyformcommon-easyApplyFormElement-394829384-1-lastName',
+      placeholder: '',
+      ariaLabel: '',
+      ariaLabelledBy: '',
+      autocomplete: '',
+      labelText: 'Last name',
+      surroundingText: '',
+      inputType: 'text',
+      cleanNameKeyword: 'lastName',
+      cleanIdKeyword: 'lastName'
+    };
+
+    const match = matchField('li-lname', linkedInLastName, { fields: sampleFields, userAliases: sampleAliases });
+    expect(match).not.toBeNull();
+    expect(match?.matchedCanonicalKey).toBe('Surname');
+    expect(match?.candidates[0].value).toBe('Morgan');
+  });
 });
+

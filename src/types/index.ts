@@ -61,6 +61,8 @@ export interface FieldSignals {
   labelText: string;
   surroundingText: string;
   inputType: DetectedInputType;
+  cleanNameKeyword?: string;
+  cleanIdKeyword?: string;
 }
 
 export type MatchType = 
