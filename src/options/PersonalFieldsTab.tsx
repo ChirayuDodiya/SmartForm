@@ -43,8 +43,11 @@ export default function PersonalFieldsTab() {
     if (newKey.trim().length >= 2) {
       const suggestions = suggestAliases(newKey);
       setSuggestedAliasesList(suggestions);
+      // Auto-enable all suggested aliases by default
+      setAcceptedAliases(suggestions);
     } else {
       setSuggestedAliasesList([]);
+      setAcceptedAliases([]);
     }
   }
 
@@ -72,6 +75,14 @@ export default function PersonalFieldsTab() {
     }
   }
 
+  function selectAllAliases() {
+    setAcceptedAliases([...suggestedAliasesList]);
+  }
+
+  function deselectAllAliases() {
+    setAcceptedAliases([]);
+  }
+
   function openAddModal() {
     setEditingFieldId(null);
     setFieldKey('');
@@ -82,13 +93,23 @@ export default function PersonalFieldsTab() {
     setIsModalOpen(true);
   }
 
-  function openEditModal(field: PersonalField) {
+  async function openEditModal(field: PersonalField) {
     setEditingFieldId(field.id);
     setFieldKey(field.key);
     setCategory(field.category);
     setValues(field.values.map(v => ({ ...v })));
-    setSuggestedAliasesList(suggestAliases(field.key));
-    setAcceptedAliases([]);
+    const suggestions = suggestAliases(field.key);
+    setSuggestedAliasesList(suggestions);
+
+    // Fetch existing aliases for this canonical key
+    const allAliases = await db.getAliases();
+    const existingFieldAliases = allAliases
+      .filter(a => a.canonicalKey.toLowerCase() === field.key.toLowerCase())
+      .map(a => a.alias);
+
+    // Auto-enable both existing aliases and suggestions
+    const initialAccepted = Array.from(new Set([...existingFieldAliases, ...suggestions]));
+    setAcceptedAliases(initialAccepted);
     setIsModalOpen(true);
   }
 
@@ -112,14 +133,21 @@ export default function PersonalFieldsTab() {
 
     await db.saveField(field);
 
-    // Save accepted aliases if any
+    // Save all auto-enabled / accepted aliases without creating duplicate mappings
+    const allAliases = await db.getAliases();
     for (const alias of acceptedAliases) {
-      await db.saveAlias({
-        id: 'alias-' + Date.now() + Math.random(),
-        canonicalKey: field.key,
-        alias: alias,
-        isBuiltIn: false
-      });
+      const alreadyExists = allAliases.some(
+        a => a.canonicalKey.toLowerCase() === field.key.toLowerCase() &&
+             a.alias.toLowerCase() === alias.toLowerCase()
+      );
+      if (!alreadyExists) {
+        await db.saveAlias({
+          id: 'alias-' + Date.now() + Math.random(),
+          canonicalKey: field.key,
+          alias: alias,
+          isBuiltIn: false
+        });
+      }
     }
 
     setIsModalOpen(false);
@@ -310,14 +338,42 @@ export default function PersonalFieldsTab() {
 
               {/* Suggested Aliases Section */}
               {suggestedAliasesList.length > 0 && (
-                <div className="bg-sky-50 border border-sky-100 rounded-xl p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Sparkles className="w-4 h-4 text-sky-600" />
-                    <span className="text-xs font-semibold text-sky-900">
-                      Suggested Aliases (Click to auto-map):
-                    </span>
+                <div className="bg-sky-50 border border-sky-100 rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-sky-600" />
+                      <span className="text-xs font-bold text-sky-950">
+                        Suggested Aliases
+                      </span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
+                        Auto-Enabled ({acceptedAliases.length}/{suggestedAliasesList.length})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={selectAllAliases}
+                        className="text-sky-700 hover:text-sky-800 font-semibold hover:underline"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-slate-300">&bull;</span>
+                      <button
+                        type="button"
+                        onClick={deselectAllAliases}
+                        className="text-slate-500 hover:text-slate-700 font-medium hover:underline"
+                      >
+                        Deselect All
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+
+                  <p className="text-[11px] text-sky-800 leading-normal">
+                    These common alternatives are <strong>auto-enabled by default</strong> to match web forms automatically. Click any alias to toggle it off if you don't want it mapped.
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1">
                     {suggestedAliasesList.map(alias => {
                       const isAccepted = acceptedAliases.includes(alias);
                       return (
@@ -325,13 +381,18 @@ export default function PersonalFieldsTab() {
                           key={alias}
                           type="button"
                           onClick={() => toggleAcceptAlias(alias)}
-                          className={`text-xs px-2.5 py-1 rounded-full border transition flex items-center gap-1 ${
+                          className={`text-xs px-2.5 py-1 rounded-full border transition flex items-center gap-1.5 font-medium ${
                             isAccepted
-                              ? 'bg-sky-600 text-white border-sky-600'
-                              : 'bg-white text-slate-700 border-slate-200 hover:border-sky-400'
+                              ? 'bg-sky-600 text-white border-sky-600 shadow-2xs hover:bg-sky-700'
+                              : 'bg-white text-slate-500 border-slate-300 hover:border-sky-400 hover:text-slate-700 opacity-70'
                           }`}
+                          title={isAccepted ? 'Click to disable' : 'Click to enable'}
                         >
-                          {isAccepted && <Check className="w-3 h-3" />}
+                          {isAccepted ? (
+                            <Check className="w-3 h-3 text-white stroke-[2.5]" />
+                          ) : (
+                            <span className="w-3 h-3 text-slate-400 text-center leading-none">&times;</span>
+                          )}
                           <span>{alias}</span>
                         </button>
                       );

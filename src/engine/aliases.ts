@@ -215,17 +215,24 @@ export const AUTOCOMPLETE_TO_CANONICAL: Record<string, string> = {
 
 /**
  * Suggests common aliases for a newly entered or selected canonical field.
+ * Matches either by canonicalKey or if the user entered a known alias.
  */
 export function suggestAliases(canonicalKey: string): string[] {
   const normalizedKey = normalizeText(canonicalKey);
+  if (!normalizedKey) return [];
+
+  // Match by canonicalKey OR by any alias in the group
   const group = BUILTIN_ALIAS_GROUPS.find(
-    g => normalizeText(g.canonicalKey) === normalizedKey
+    g => normalizeText(g.canonicalKey) === normalizedKey ||
+         g.aliases.some(a => normalizeText(a) === normalizedKey)
   );
 
   if (!group) {
     return [];
   }
 
-  // Filter out the exact key itself from alias suggestions
-  return group.aliases.filter(alias => normalizeText(alias) !== normalizedKey);
+  // Include group canonicalKey and all aliases except the one entered by the user
+  const candidates = [group.canonicalKey, ...group.aliases];
+  const unique = Array.from(new Set(candidates));
+  return unique.filter(alias => normalizeText(alias) !== normalizedKey);
 }

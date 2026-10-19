@@ -35,6 +35,12 @@ describe('Alias Suggestions', () => {
     expect(suggestions).toContain('given name');
     expect(suggestions).toContain('fname');
   });
+
+  it('suggests canonical key and aliases when typing an alias variant like Last Name', () => {
+    const suggestions = suggestAliases('Last Name');
+    expect(suggestions).toContain('Surname');
+    expect(suggestions).toContain('family name');
+  });
 });
 
 describe('Matching Engine', () => {
