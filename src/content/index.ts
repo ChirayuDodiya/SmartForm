@@ -16,7 +16,33 @@ let cachedSettings: AppSettings = {
 
 let scannedElements: ScannedElement[] = [];
 
-async function initContentScript() {
+/**
+ * Fetches the single-source-of-truth vault records from the extension background service worker.
+ * Falls back to local IndexedDB if running in standalone test or dev environments.
+ */
+async function syncVaultData(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ type: 'GET_VAULT_DATA' }, (response) => {
+        if (!chrome.runtime.lastError && response?.success) {
+          cachedFields = response.fields || [];
+          cachedAliases = response.aliases || [];
+          cachedDocs = response.documents || [];
+          if (response.settings) cachedSettings = response.settings;
+          performScan();
+          resolve();
+          return;
+        }
+        // Fallback if background worker unavailable
+        fallbackToLocalDb().then(resolve);
+      });
+    } else {
+      fallbackToLocalDb().then(resolve);
+    }
+  });
+}
+
+async function fallbackToLocalDb() {
   try {
     await db.ensureInitialized();
     cachedFields = await db.getFields();
@@ -24,31 +50,59 @@ async function initContentScript() {
     cachedDocs = await db.getDocuments();
     cachedSettings = await db.getSettings();
   } catch (err) {
-    console.warn('[SmartForm] Vault not initialized yet or running restricted context:', err);
+    console.warn('[SmartForm] Vault not initialized yet:', err);
   }
+  performScan();
+}
+
+async function fetchDocumentById(docId: string): Promise<DocumentRecord | null> {
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'GET_DOCUMENT_DATA', docId }, (response) => {
+        if (!chrome.runtime.lastError && response?.success && response.doc) {
+          resolve(response.doc);
+        } else {
+          db.getDocument(docId).then(resolve);
+        }
+      });
+    });
+  }
+  return db.getDocument(docId);
+}
+
+async function saveAliasThroughBackground(canonicalKey: string, aliasText: string): Promise<void> {
+  const alias: AliasMapping = {
+    id: 'alias-' + Date.now(),
+    canonicalKey,
+    alias: aliasText,
+    isBuiltIn: false
+  };
+
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'SAVE_ALIAS', alias }, () => {
+      syncVaultData();
+    });
+  } else {
+    await db.saveAlias(alias);
+    await syncVaultData();
+  }
+}
+
+async function initContentScript() {
+  await syncVaultData();
 
   // Initialize Shadow-DOM tooltip
   initTooltip({
     onFillAll: (formEl) => {
-      autofillRecognizedFields(formEl);
+      autofillRecognizedFields(formEl, true);
     },
-    onAddAlias: async (canonicalKey, aliasText) => {
-      await db.saveAlias({
-        id: 'alias-' + Date.now(),
-        canonicalKey,
-        alias: aliasText,
-        isBuiltIn: false
-      });
-      cachedAliases = await db.getAliases();
-      performScan();
+    onAddAlias: (canonicalKey, aliasText) => {
+      saveAliasThroughBackground(canonicalKey, aliasText);
     },
-    getDocumentById: async (docId) => {
-      return await db.getDocument(docId);
+    getDocumentById: (docId) => {
+      return fetchDocumentById(docId);
     }
   });
-
-  // Perform initial scan
-  performScan();
 
   // Attach focus & click listeners to show suggestion tooltip
   attachEventListeners();
@@ -58,21 +112,32 @@ async function initContentScript() {
     setupMutationObserver();
   }
 
-  // Listen for messages from extension popup or background worker
+  // Listen for messages from extension popup, options, or background worker
   if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
     chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+      if (request.type === 'VAULT_UPDATED') {
+        // Vault edited in Options/Popup -> refresh immediately
+        syncVaultData().then(() => {
+          sendResponse({ success: true });
+        });
+        return true;
+      }
+
       if (request.type === 'SCAN_PAGE_FIELDS') {
-        performScan();
-        const matches = scannedElements
-          .filter(s => s.match !== null)
-          .map(s => s.match as FieldMatch);
-        sendResponse({ success: true, matches });
+        syncVaultData().then(() => {
+          const matches = scannedElements
+            .filter(s => s.match !== null)
+            .map(s => s.match as FieldMatch);
+          sendResponse({ success: true, matches });
+        });
         return true;
       }
 
       if (request.type === 'AUTOFILL_ALL_DETECTED') {
-        const count = autofillRecognizedFields(null);
-        sendResponse({ success: true, filledCount: count });
+        syncVaultData().then(() => {
+          const count = autofillRecognizedFields(null, request.overwrite ?? true);
+          sendResponse({ success: true, filledCount: count });
+        });
         return true;
       }
     });
@@ -92,7 +157,7 @@ function attachEventListeners() {
   document.addEventListener('click', handleElementInteraction, true);
 }
 
-function handleElementInteraction(e: Event) {
+async function handleElementInteraction(e: Event) {
   const target = e.target as HTMLElement;
   if (!target || !['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
     return;
@@ -103,32 +168,24 @@ function handleElementInteraction(e: Event) {
     return;
   }
 
+  // Refresh latest vault data to guarantee edited values are immediately available
+  await syncVaultData();
+
   const fieldId = target.getAttribute('data-smartform-id');
-  const scanned = scannedElements.find(s => s.id === fieldId);
+  const scanned = scannedElements.find(s => s.id === fieldId) || scannedElements.find(s => s.element === target);
 
   if (scanned && scanned.match && scanned.match.candidates.length > 0) {
     if (cachedSettings.autoShowSuggestions) {
       showTooltip(target, scanned.match, {
         onFillAll: (formEl) => autofillRecognizedFields(formEl),
-        getDocumentById: (id) => db.getDocument(id)
+        getDocumentById: (id) => fetchDocumentById(id),
+        onAddAlias: (canonicalKey, aliasText) => saveAliasThroughBackground(canonicalKey, aliasText)
       });
-    }
-  } else {
-    // If element is not recognized yet, try re-scanning this specific element
-    performScan();
-    const newlyScanned = scannedElements.find(s => s.element === target);
-    if (newlyScanned && newlyScanned.match && newlyScanned.match.candidates.length > 0) {
-      if (cachedSettings.autoShowSuggestions) {
-        showTooltip(target, newlyScanned.match, {
-          onFillAll: (formEl) => autofillRecognizedFields(formEl),
-          getDocumentById: (id) => db.getDocument(id)
-        });
-      }
     }
   }
 }
 
-function autofillRecognizedFields(targetForm: HTMLFormElement | null): number {
+function autofillRecognizedFields(targetForm: HTMLFormElement | null, forceOverwrite = false): number {
   let filledCount = 0;
 
   for (const scanned of scannedElements) {
@@ -147,15 +204,15 @@ function autofillRecognizedFields(targetForm: HTMLFormElement | null): number {
       ? (el.files?.length ? 'has_files' : '') 
       : el.value;
 
-    if (currentValue && cachedSettings.confirmBeforeOverwrite) {
-      // Protect non-empty fields according to user preference
+    if (currentValue && !forceOverwrite && cachedSettings.confirmBeforeOverwrite) {
+      // Protect non-empty fields unless user explicitly requested overwrite
       continue;
     }
 
     const firstCandidate = scanned.match.candidates[0];
 
     if (scanned.signals.inputType === 'file' && firstCandidate.documentId && el instanceof HTMLInputElement) {
-      db.getDocument(firstCandidate.documentId).then(doc => {
+      fetchDocumentById(firstCandidate.documentId).then(doc => {
         if (doc) fillFileInput(el, doc);
       });
       filledCount++;

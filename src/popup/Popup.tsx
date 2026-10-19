@@ -69,7 +69,7 @@ export default function Popup() {
         if (activeTab?.id) {
           chrome.tabs.sendMessage(
             activeTab.id,
-            { type: 'AUTOFILL_ALL_DETECTED' },
+            { type: 'AUTOFILL_ALL_DETECTED', overwrite: true },
             (response) => {
               if (response?.success) {
                 setFillStatus(`Filled ${response.filledCount} fields!`);

@@ -64,6 +64,14 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
   }
 ];
 
+function notifyVaultUpdated() {
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'VAULT_UPDATED' }, () => {
+      if (chrome.runtime.lastError) { /* ignore */ }
+    });
+  }
+}
+
 class SmartFormDatabase {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -71,7 +79,6 @@ class SmartFormDatabase {
     if (this.dbPromise) return this.dbPromise;
 
     this.dbPromise = new Promise((resolve, reject) => {
-      // Check if indexedDB exists (browser environment)
       if (typeof indexedDB === 'undefined') {
         return reject(new Error('IndexedDB is not supported in this environment'));
       }
@@ -115,7 +122,6 @@ class SmartFormDatabase {
 
     const aliases = await this.getAliases();
     if (aliases.length === 0) {
-      // Seed common built-in aliases
       for (const group of BUILTIN_ALIAS_GROUPS) {
         for (const alias of group.aliases) {
           if (alias.toLowerCase() !== group.canonicalKey.toLowerCase()) {
@@ -150,7 +156,10 @@ class SmartFormDatabase {
       const store = tx.objectStore('fields');
       field.updatedAt = Date.now();
       const request = store.put(field);
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        notifyVaultUpdated();
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -161,7 +170,10 @@ class SmartFormDatabase {
       const tx = db.transaction('fields', 'readwrite');
       const store = tx.objectStore('fields');
       const request = store.delete(id);
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        notifyVaultUpdated();
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -184,7 +196,10 @@ class SmartFormDatabase {
       const tx = db.transaction('aliases', 'readwrite');
       const store = tx.objectStore('aliases');
       const request = store.put(alias);
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        notifyVaultUpdated();
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -195,7 +210,10 @@ class SmartFormDatabase {
       const tx = db.transaction('aliases', 'readwrite');
       const store = tx.objectStore('aliases');
       const request = store.delete(id);
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        notifyVaultUpdated();
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -230,7 +248,10 @@ class SmartFormDatabase {
       const store = tx.objectStore('documents');
       doc.updatedAt = Date.now();
       const request = store.put(doc);
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        notifyVaultUpdated();
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -241,7 +262,10 @@ class SmartFormDatabase {
       const tx = db.transaction('documents', 'readwrite');
       const store = tx.objectStore('documents');
       const request = store.delete(id);
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        notifyVaultUpdated();
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -275,12 +299,16 @@ class SmartFormDatabase {
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       return new Promise((resolve) => {
-        chrome.storage.local.set({ smartform_settings: updated }, () => resolve());
+        chrome.storage.local.set({ smartform_settings: updated }, () => {
+          notifyVaultUpdated();
+          resolve();
+        });
       });
     }
 
     try {
       localStorage.setItem('smartform_settings', JSON.stringify(updated));
+      notifyVaultUpdated();
     } catch {
       // ignore
     }
