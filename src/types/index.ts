@@ -93,6 +93,7 @@ export interface AppSettings {
   autoShowSuggestions: boolean;
   confirmBeforeOverwrite: boolean;
   enableDynamicForms: boolean;
+  promptToSaveNewFields: boolean;
 }
 
 export interface SmartFormBackup {

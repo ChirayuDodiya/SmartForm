@@ -157,6 +157,156 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
       color: #fff;
       border-color: #0284c7;
     }
+    /* Save to Vault Card */
+    .save-card {
+      position: absolute;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.2), 0 8px 12px -6px rgba(0, 0, 0, 0.1);
+      width: 310px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: sfFadeIn 0.15s ease-out;
+      font-size: 13px;
+      color: #0f172a;
+      z-index: 2147483647;
+    }
+    .save-header {
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .save-title {
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .save-close {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .save-close:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .save-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #ffffff;
+    }
+    .save-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .save-input {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #0f172a;
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.12s;
+    }
+    .save-input:focus {
+      border-color: #0284c7;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+    }
+    .save-preview {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: #334155;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      word-break: break-all;
+      max-height: 55px;
+      overflow-y: auto;
+    }
+    .save-select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 12px;
+      background: #ffffff;
+      color: #0f172a;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .save-footer {
+      padding: 10px 14px;
+      background: #f8fafc;
+      border-top: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .btn-save {
+      background: #0284c7;
+      color: #ffffff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.12s;
+    }
+    .btn-save:hover {
+      background: #0369a1;
+    }
+    .btn-dismiss {
+      background: transparent;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .btn-dismiss:hover {
+      background: #f1f5f9;
+      color: #334155;
+    }
+    .save-success {
+      padding: 16px;
+      text-align: center;
+      color: #059669;
+      font-weight: 600;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
   `;
   shadowRoot.appendChild(style);
 
@@ -165,6 +315,13 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
     if (!hostElement) return;
     const path = e.composedPath();
     if (!path.includes(hostElement) && !path.includes(activeElement as any)) {
+      hideTooltip();
+    }
+  });
+
+  // Global escape key listener
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
       hideTooltip();
     }
   });
@@ -273,16 +430,124 @@ export function showTooltip(
   repositionTooltip(targetEl);
 }
 
+export interface SavePromptOptions {
+  suggestedKey: string;
+  value: string;
+  suggestedCategory?: string;
+  onSave: (key: string, value: string, category: string) => Promise<void> | void;
+  onDismiss: () => void;
+}
+
+export function showSavePrompt(
+  targetEl: HTMLElement,
+  options: SavePromptOptions
+) {
+  if (!shadowRoot) return;
+
+  activeElement = targetEl;
+
+  // Remove existing popup if any
+  const oldPopup = shadowRoot.querySelector('.popup-card, .save-card');
+  if (oldPopup) oldPopup.remove();
+
+  const card = document.createElement('div');
+  card.className = 'save-card';
+
+  card.innerHTML = `
+    <div class="save-header">
+      <div class="save-title">
+        <span style="background: rgba(255,255,255,0.25); border-radius: 4px; padding: 1px 5px; font-size: 11px;">+</span>
+        Save to Vault?
+      </div>
+      <button class="save-close" title="Dismiss">&times;</button>
+    </div>
+    <div class="save-body">
+      <div>
+        <div class="save-label">Entered Value</div>
+        <div class="save-preview" title="${escapeHtml(options.value)}">${escapeHtml(options.value)}</div>
+      </div>
+      <div>
+        <div class="save-label">Field Name</div>
+        <input type="text" class="save-input field-key-input" value="${escapeHtml(options.suggestedKey)}" placeholder="e.g. Portfolio URL" />
+      </div>
+      <div>
+        <div class="save-label">Category</div>
+        <select class="save-select category-select">
+          <option value="Personal" ${options.suggestedCategory === 'Personal' ? 'selected' : ''}>Personal</option>
+          <option value="Job Applications" ${options.suggestedCategory === 'Job Applications' ? 'selected' : ''}>Job Applications</option>
+          <option value="Academic" ${options.suggestedCategory === 'Academic' ? 'selected' : ''}>Academic</option>
+          <option value="Other" ${options.suggestedCategory === 'Other' ? 'selected' : ''}>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="save-footer">
+      <button class="btn-dismiss">Not Now</button>
+      <button class="btn-save">Save to Vault</button>
+    </div>
+  `;
+
+  const closeBtn = card.querySelector('.save-close') as HTMLButtonElement;
+  const dismissBtn = card.querySelector('.btn-dismiss') as HTMLButtonElement;
+  const saveBtn = card.querySelector('.btn-save') as HTMLButtonElement;
+  const keyInput = card.querySelector('.field-key-input') as HTMLInputElement;
+  const catSelect = card.querySelector('.category-select') as HTMLSelectElement;
+
+  const handleDismiss = (e?: Event) => {
+    e?.stopPropagation();
+    options.onDismiss();
+    hideTooltip();
+  };
+
+  closeBtn?.addEventListener('click', handleDismiss);
+  dismissBtn?.addEventListener('click', handleDismiss);
+
+  saveBtn?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const finalKey = keyInput?.value.trim() || options.suggestedKey || 'Custom Field';
+    const finalCat = catSelect?.value || options.suggestedCategory || 'Personal';
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    try {
+      await options.onSave(finalKey, options.value, finalCat);
+
+      const body = card.querySelector('.save-body');
+      const footer = card.querySelector('.save-footer');
+      if (body) {
+        body.innerHTML = `
+          <div class="save-success">
+            <span style="font-size: 16px;">✓</span>
+            <span>Saved "<strong>${escapeHtml(finalKey)}</strong>" to Vault!</span>
+          </div>
+        `;
+      }
+      if (footer) (footer as HTMLElement).style.display = 'none';
+
+      setTimeout(() => {
+        hideTooltip();
+      }, 1200);
+    } catch (err) {
+      console.error('[SmartForm] Failed to save field:', err);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save to Vault';
+    }
+  });
+
+  shadowRoot.appendChild(card);
+  repositionTooltip(targetEl);
+}
+
 export function hideTooltip() {
   if (!shadowRoot) return;
-  const popup = shadowRoot.querySelector('.popup-card');
+  const popup = shadowRoot.querySelector('.popup-card, .save-card');
   if (popup) popup.remove();
   activeElement = null;
 }
 
 function repositionTooltip(targetEl: HTMLElement) {
   if (!shadowRoot) return;
-  const popup = shadowRoot.querySelector('.popup-card') as HTMLElement;
+  const popup = (shadowRoot.querySelector('.popup-card') || shadowRoot.querySelector('.save-card')) as HTMLElement;
   if (!popup) return;
 
   const rect = targetEl.getBoundingClientRect();
@@ -293,15 +558,16 @@ function repositionTooltip(targetEl: HTMLElement) {
   let left = rect.left + scrollX;
 
   // Ensure within horizontal screen bounds
-  const popupWidth = 290;
+  const popupWidth = popup.offsetWidth || 310;
   if (left + popupWidth > window.innerWidth + scrollX - 16) {
     left = window.innerWidth + scrollX - popupWidth - 16;
   }
   if (left < scrollX + 8) left = scrollX + 8;
 
   // If close to bottom of screen, show above input
-  if (rect.bottom + 260 > window.innerHeight && rect.top > 260) {
-    top = rect.top + scrollY - popup.offsetHeight - 4;
+  const popupHeight = popup.offsetHeight || 260;
+  if (rect.bottom + popupHeight > window.innerHeight && rect.top > popupHeight) {
+    top = rect.top + scrollY - popupHeight - 4;
   }
 
   popup.style.top = `${top}px`;

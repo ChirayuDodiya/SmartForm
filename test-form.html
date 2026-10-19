@@ -183,6 +183,17 @@
       </div>
 
       <div class="form-group">
+        <!-- Testing Unrecognized Fields: Prompt to Save to Vault -->
+        <label for="emergency_contact">Emergency Contact <span class="badge" style="background:#e0f2fe; color:#0369a1;">Unrecognized: Type to test Save Prompt</span></label>
+        <input type="text" id="emergency_contact" name="emergency_contact" placeholder="Type a contact (e.g. John Doe +1-555-0199) and blur/tab out..." />
+      </div>
+
+      <div class="form-group">
+        <label for="favorite_tech">Preferred Tech Stack <span class="badge" style="background:#e0f2fe; color:#0369a1;">Unrecognized: Type to test Save Prompt</span></label>
+        <input type="text" id="favorite_tech" name="favorite_tech" placeholder="e.g. React, TypeScript, Node.js" />
+      </div>
+
+      <div class="form-group">
         <!-- Testing Security Rule: PASSWORD FIELDS MUST NEVER BE TOUCHED OR AUTOFILLED! -->
         <label for="pwd_field">Create Portal Password <span class="badge" style="background:#fee2e2; color:#b91c1c;">Security Check: Never touched</span></label>
         <input type="password" id="pwd_field" name="portal_password" placeholder="••••••••" />

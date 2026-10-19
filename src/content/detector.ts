@@ -118,3 +118,44 @@ export function scanPage(options: MatchOptions): ScannedElement[] {
 
   return scanned;
 }
+
+export function formatSuggestedFieldName(signals: FieldSignals, matchedCanonicalKey?: string): string {
+  if (matchedCanonicalKey) return matchedCanonicalKey;
+
+  let text = signals.labelText || signals.ariaLabel || '';
+  if (!text && signals.placeholder) {
+    text = signals.placeholder.replace(/^(please\s+enter\s+your|please\s+enter|enter\s+your|type\s+your|input\s+your|enter|type|input|your)\s+/i, '');
+  }
+  if (!text) {
+    text = signals.name || signals.id || '';
+  }
+
+  // Clean unwanted punctuation and marks
+  text = text.replace(/[*:#]/g, '').trim();
+
+  // Convert camelCase, snake_case, kebab-case to separated words
+  text = text
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+
+  if (text) {
+    text = text
+      .split(/\s+/)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  return text.substring(0, 35) || 'Custom Field';
+}
+
+export function formatSuggestedCategory(fieldName: string, signals: FieldSignals): string {
+  const combined = `${fieldName} ${signals.name} ${signals.id} ${signals.labelText}`.toLowerCase();
+  if (/resume|cv|portfolio|github|linkedin|salary|job|experience|company|employer|position|role|employment/.test(combined)) {
+    return 'Job Applications';
+  }
+  if (/gpa|degree|university|college|school|academic|major|minor|graduation|course|education|transcript/.test(combined)) {
+    return 'Academic';
+  }
+  return 'Personal';
+}

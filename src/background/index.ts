@@ -1,4 +1,5 @@
 import { db } from '../storage/db';
+import { suggestAliases } from '../engine/aliases';
 
 // Extension Installation & Update Lifecycle
 chrome.runtime.onInstalled.addListener(async (details) => {
@@ -95,6 +96,68 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       await db.saveAlias(message.alias);
       sendResponse({ success: true });
       notifyTabsVaultUpdated();
+    })();
+    return true;
+  }
+
+  if (message.type === 'SAVE_NEW_FIELD') {
+    (async () => {
+      try {
+        const { canonicalKey, value, category, label } = message;
+        await db.ensureInitialized();
+        const fields = await db.getFields();
+
+        const cleanKey = (canonicalKey || 'Custom Field').trim();
+        const cleanVal = (value || '').trim();
+        let targetField = fields.find(f => f.key.toLowerCase() === cleanKey.toLowerCase());
+
+        if (targetField) {
+          const valExists = targetField.values.some(
+            v => v.value.trim().toLowerCase() === cleanVal.toLowerCase()
+          );
+          if (!valExists) {
+            targetField.values.push({
+              id: 'val-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+              label: label || 'Additional',
+              value: cleanVal
+            });
+            await db.saveField(targetField);
+          }
+        } else {
+          targetField = {
+            id: 'field-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+            key: cleanKey,
+            category: category || 'Personal',
+            values: [
+              {
+                id: 'val-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                label: label || 'Primary',
+                value: cleanVal,
+                isDefault: true
+              }
+            ],
+            updatedAt: Date.now()
+          };
+          await db.saveField(targetField);
+
+          // Automatically suggest and register aliases for the newly created canonical key
+          const suggested = suggestAliases(cleanKey);
+          for (const aliasText of suggested) {
+            await db.saveAlias({
+              id: `alias-${cleanKey}-${aliasText}`.replace(/\s+/g, '-').toLowerCase(),
+              canonicalKey: cleanKey,
+              alias: aliasText,
+              isBuiltIn: false
+            });
+          }
+        }
+
+        notifyTabsVaultUpdated();
+        sendResponse({ success: true, field: targetField });
+      } catch (err: any) {
+        console.error('[SmartForm Background] Error saving new field:', err);
+        sendResponse({ success: false, error: err.message });
+      }
     })();
     return true;
   }

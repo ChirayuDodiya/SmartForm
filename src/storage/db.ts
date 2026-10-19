@@ -13,7 +13,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   activeProfile: 'Personal',
   autoShowSuggestions: true,
   confirmBeforeOverwrite: true,
-  enableDynamicForms: true
+  enableDynamicForms: true,
+  promptToSaveNewFields: true
 };
 
 const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
@@ -21,14 +22,14 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     id: 'init-fname',
     key: 'First Name',
     category: 'Personal',
-    values: [{ id: 'val-1', label: 'Primary', value: 'Chirayu', isDefault: true }],
+    values: [{ id: 'val-1', label: 'Primary', value: 'Alex', isDefault: true }],
     updatedAt: Date.now()
   },
   {
     id: 'init-lname',
     key: 'Surname',
     category: 'Personal',
-    values: [{ id: 'val-2', label: 'Primary', value: 'Dodiya', isDefault: true }],
+    values: [{ id: 'val-2', label: 'Primary', value: 'Morgan', isDefault: true }],
     updatedAt: Date.now()
   },
   {
@@ -36,8 +37,8 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     key: 'Email',
     category: 'Personal',
     values: [
-      { id: 'val-3', label: 'Personal', value: 'chirayu@example.com', isDefault: true },
-      { id: 'val-4', label: 'Work/College', value: 'chirayu@college.edu' }
+      { id: 'val-3', label: 'Personal', value: 'alex.morgan@example.com', isDefault: true },
+      { id: 'val-4', label: 'Work/College', value: 'alex@university.edu' }
     ],
     updatedAt: Date.now()
   },
@@ -52,14 +53,14 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     id: 'init-linkedin',
     key: 'LinkedIn',
     category: 'Job Applications',
-    values: [{ id: 'val-6', label: 'Profile', value: 'https://linkedin.com/in/chirayu-dodiya', isDefault: true }],
+    values: [{ id: 'val-6', label: 'Profile', value: 'https://linkedin.com/in/alex-morgan', isDefault: true }],
     updatedAt: Date.now()
   },
   {
     id: 'init-github',
     key: 'GitHub',
     category: 'Job Applications',
-    values: [{ id: 'val-7', label: 'Profile', value: 'https://github.com/chirayu', isDefault: true }],
+    values: [{ id: 'val-7', label: 'Profile', value: 'https://github.com/alexmorgan', isDefault: true }],
     updatedAt: Date.now()
   }
 ];

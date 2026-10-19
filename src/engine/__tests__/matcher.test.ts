@@ -49,14 +49,14 @@ describe('Matching Engine', () => {
       id: 'f1',
       key: 'First Name',
       category: 'Personal',
-      values: [{ id: 'v1', label: 'Default', value: 'Chirayu' }],
+      values: [{ id: 'v1', label: 'Default', value: 'Alex' }],
       updatedAt: Date.now()
     },
     {
       id: 'f2',
       key: 'Surname',
       category: 'Personal',
-      values: [{ id: 'v2', label: 'Default', value: 'Dodiya' }],
+      values: [{ id: 'v2', label: 'Default', value: 'Morgan' }],
       updatedAt: Date.now()
     },
     {
@@ -64,8 +64,8 @@ describe('Matching Engine', () => {
       key: 'Email',
       category: 'Personal',
       values: [
-        { id: 'v3a', label: 'Personal', value: 'chirayu@example.com' },
-        { id: 'v3b', label: 'College', value: 'chirayu@college.edu' }
+        { id: 'v3a', label: 'Personal', value: 'alex.morgan@example.com' },
+        { id: 'v3b', label: 'College', value: 'alex@university.edu' }
       ],
       updatedAt: Date.now()
     },
@@ -73,7 +73,7 @@ describe('Matching Engine', () => {
       id: 'f4',
       key: 'GitHub',
       category: 'Job Applications',
-      values: [{ id: 'v4', label: 'Profile', value: 'https://github.com/chirayu' }],
+      values: [{ id: 'v4', label: 'Profile', value: 'https://github.com/alexmorgan' }],
       updatedAt: Date.now()
     }
   ];
@@ -141,7 +141,7 @@ describe('Matching Engine', () => {
     expect(match?.matchedCanonicalKey).toBe('First Name');
     expect(match?.matchType).toBe('exact');
     expect(match?.confidence).toBe(100);
-    expect(match?.candidates[0].value).toBe('Chirayu');
+    expect(match?.candidates[0].value).toBe('Alex');
   });
 
   it('matches built-in alias "Family Name" and "Last Name" to Surname', () => {
@@ -161,7 +161,7 @@ describe('Matching Engine', () => {
     expect(match).not.toBeNull();
     expect(match?.matchedCanonicalKey).toBe('Surname');
     expect(match?.matchType).toBe('builtin_alias');
-    expect(match?.candidates[0].value).toBe('Dodiya');
+    expect(match?.candidates[0].value).toBe('Morgan');
   });
 
   it('matches user custom alias "Second Name" to Surname', () => {
@@ -201,8 +201,8 @@ describe('Matching Engine', () => {
     expect(match).not.toBeNull();
     expect(match?.matchedCanonicalKey).toBe('Email');
     expect(match?.candidates.length).toBe(2);
-    expect(match?.candidates[0].value).toBe('chirayu@example.com');
-    expect(match?.candidates[1].value).toBe('chirayu@college.edu');
+    expect(match?.candidates[0].value).toBe('alex.morgan@example.com');
+    expect(match?.candidates[1].value).toBe('alex@university.edu');
   });
 
   it('matches semantic equivalent "GitHub Profile URL" to GitHub', () => {

@@ -16,7 +16,8 @@ export default function SettingsBackupTab() {
     activeProfile: 'Personal',
     autoShowSuggestions: true,
     confirmBeforeOverwrite: true,
-    enableDynamicForms: true
+    enableDynamicForms: true,
+    promptToSaveNewFields: true
   });
   const [includeFileData, setIncludeFileData] = useState(true);
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -149,6 +150,23 @@ export default function SettingsBackupTab() {
               </span>
               <span className="text-xs text-slate-500">
                 Detect fields added dynamically via JavaScript (React, Vue, Angular multi-step application forms).
+              </span>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settings.promptToSaveNewFields}
+              onChange={(e) => updateSetting('promptToSaveNewFields', e.target.checked)}
+              className="mt-1 w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300"
+            />
+            <div>
+              <span className="text-sm font-semibold text-slate-800 block">
+                Prompt to save new fields when filled
+              </span>
+              <span className="text-xs text-slate-500">
+                Automatically ask to save unrecognized fields and new values directly into your vault when entered on forms.
               </span>
             </div>
           </label>

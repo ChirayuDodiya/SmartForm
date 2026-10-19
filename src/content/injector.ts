@@ -59,6 +59,10 @@ export function fillTextInput(
       }
     }
 
+    // Mark element with the autofilled value so SmartForm doesn't prompt to re-save it
+    el.setAttribute('data-smartform-autofilled-val', value);
+    el.setAttribute('data-smartform-last-checked-val', value);
+
     // Dispatch input, change, and blur events
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
