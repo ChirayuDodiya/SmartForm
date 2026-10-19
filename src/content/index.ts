@@ -14,9 +14,7 @@ import {
   initTooltip, 
   showTooltip, 
   hideTooltip, 
-  showSavePrompt,
-  showAutofillPill,
-  hideAutofillPill
+  showSavePrompt
 } from './tooltip';
 import { fillTextInput, fillFileInput } from './injector';
 import { suggestAliases } from '../engine/aliases';
@@ -265,7 +263,6 @@ async function initContentScript() {
 
 function performScan() {
   if (isMediaOrEntertainmentSite()) {
-    hideAutofillPill();
     return;
   }
 
@@ -274,20 +271,6 @@ function performScan() {
     userAliases: cachedAliases,
     documents: cachedDocs
   });
-
-  const matched = scannedElements.filter(s => s.match !== null && s.match.candidates.length > 0);
-  if (matched.length > 0) {
-    const modalEl = document.querySelector('[role="dialog"], .jobs-easy-apply-modal, .artdeco-modal, dialog') as HTMLElement;
-    showAutofillPill(
-      matched.length,
-      () => {
-        autofillRecognizedFields(null, true);
-      },
-      modalEl
-    );
-  } else {
-    hideAutofillPill();
-  }
 }
 
 function attachEventListeners() {
