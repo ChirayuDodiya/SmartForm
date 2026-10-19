@@ -336,7 +336,11 @@ async function handleFieldChangeOrBlur(e: Event) {
       return;
     }
 
-    const scanned = scannedElements.find(s => s.id === fieldId) || scannedElements.find(s => s.element === target);
+    let scanned = scannedElements.find(s => s.id === fieldId) || scannedElements.find(s => s.element === target);
+    if (!scanned) {
+      performScan();
+      scanned = scannedElements.find(s => s.element === target);
+    }
     const matchedKey = scanned?.match?.matchedCanonicalKey;
 
     const suggestedKey = formatSuggestedFieldName(signals, matchedKey);
@@ -378,7 +382,13 @@ async function handleElementInteraction(e: Event) {
   await syncVaultData();
 
   const fieldId = target.getAttribute('data-smartform-id');
-  const scanned = scannedElements.find(s => s.id === fieldId) || scannedElements.find(s => s.element === target);
+  let scanned = scannedElements.find(s => s.id === fieldId) || scannedElements.find(s => s.element === target);
+
+  // If the field was just rendered inside a newly opened modal/popup, rescan immediately
+  if (!scanned) {
+    performScan();
+    scanned = scannedElements.find(s => s.element === target);
+  }
 
   if (scanned && scanned.match && scanned.match.candidates.length > 0) {
     if (cachedSettings.autoShowSuggestions) {

@@ -201,9 +201,14 @@
 
       <div id="dynamic-container"></div>
 
-      <button type="button" class="btn-secondary" id="btn-add-dynamic">
-        + Simulate Dynamically Rendered Field (SPA Mutation)
-      </button>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+        <button type="button" class="btn-secondary" id="btn-add-dynamic">
+          + Simulate SPA Injected Field
+        </button>
+        <button type="button" class="btn-secondary" id="btn-open-modal" style="background:#f0f9ff; color:#0369a1; border-color:#bae6fd; font-weight:600;">
+          🔍 Simulate LinkedIn Easy Apply Modal Popup
+        </button>
+      </div>
 
       <div style="display: flex; gap: 12px; align-items: center;">
         <button type="submit" class="btn-submit">Submit Application</button>
@@ -212,7 +217,57 @@
     </form>
   </div>
 
+  <!-- Modal Dialog Simulation for LinkedIn Easy Apply -->
+  <div id="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(2px); z-index:10000; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:#ffffff; border-radius:12px; max-width:540px; width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); padding:24px; position:relative;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+        <h2 style="margin:0; font-size:18px; color:#0f172a;">LinkedIn Easy Apply Simulation</h2>
+        <button type="button" id="btn-close-modal" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">&times;</button>
+      </div>
+      <p style="font-size:13px; color:#64748b; margin-top:0; margin-bottom:16px;">
+        This modal is rendered with <code>position: fixed</code> and internal <code>overflow-y: auto</code> scroll, exactly like LinkedIn's Easy Apply dialog.
+      </p>
+      <form id="modal-easy-apply-form">
+        <div class="form-group">
+          <label for="modal_fname">First Name</label>
+          <input type="text" id="modal_fname" name="firstName" placeholder="First name" autocomplete="given-name" />
+        </div>
+        <div class="form-group">
+          <label for="modal_lname">Last Name</label>
+          <input type="text" id="modal_lname" name="lastName" placeholder="Last name" autocomplete="family-name" />
+        </div>
+        <div class="form-group">
+          <label for="modal_email">Email Address</label>
+          <input type="email" id="modal_email" name="email" placeholder="Email" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="modal_phone">Phone Number</label>
+          <input type="tel" id="modal_phone" name="phone" placeholder="Phone" autocomplete="tel" />
+        </div>
+        <div class="form-group">
+          <label for="modal_salary">Expected Annual Salary <span class="badge" style="background:#e0f2fe; color:#0369a1;">Unrecognized Field</span></label>
+          <input type="text" id="modal_salary" name="expected_salary" placeholder="e.g. $120,000 / year" />
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+          <button type="button" id="btn-cancel-modal" class="btn-secondary">Close</button>
+          <button type="submit" class="btn-submit">Submit Application</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
+    const modalBackdrop = document.getElementById('modal-backdrop');
+    document.getElementById('btn-open-modal').addEventListener('click', () => {
+      modalBackdrop.style.display = 'flex';
+    });
+    const closeModal = () => { modalBackdrop.style.display = 'none'; };
+    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+    document.getElementById('btn-cancel-modal').addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', (e) => {
+      if (e.target === modalBackdrop) closeModal();
+    });
+
     document.getElementById('btn-add-dynamic').addEventListener('click', () => {
       const container = document.getElementById('dynamic-container');
       const div = document.createElement('div');
@@ -227,6 +282,12 @@
     document.getElementById('job-app-form').addEventListener('submit', (e) => {
       e.preventDefault();
       alert('Form submitted! (SmartForm never auto-submits)');
+    });
+
+    document.getElementById('modal-easy-apply-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      alert('Modal Form submitted! (SmartForm never auto-submits)');
+      closeModal();
     });
   </script>
 </body>

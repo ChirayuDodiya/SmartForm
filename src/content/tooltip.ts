@@ -16,8 +16,8 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
   if (hostElement) return;
 
   hostElement = document.createElement('smartform-suggestion-host');
-  hostElement.style.cssText = 'all: initial; position: absolute; z-index: 2147483647; top: 0; left: 0;';
-  document.body.appendChild(hostElement);
+  hostElement.style.cssText = 'all: initial !important; position: fixed !important; z-index: 2147483647 !important; top: 0 !important; left: 0 !important; width: 0 !important; height: 0 !important; pointer-events: none !important;';
+  (document.documentElement || document.body).appendChild(hostElement);
 
   shadowRoot = hostElement.attachShadow({ mode: 'open' });
 
@@ -31,11 +31,13 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     .popup-card {
-      position: absolute;
+      position: fixed !important;
+      pointer-events: auto !important;
+      z-index: 2147483647 !important;
       background: #ffffff;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.15);
       width: 290px;
       max-height: 380px;
       display: flex;
@@ -159,11 +161,13 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
     }
     /* Save to Vault Card */
     .save-card {
-      position: absolute;
+      position: fixed !important;
+      pointer-events: auto !important;
+      z-index: 2147483647 !important;
       background: #ffffff;
       border: 1px solid #cbd5e1;
       border-radius: 12px;
-      box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.2), 0 8px 12px -6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.25), 0 8px 12px -6px rgba(0, 0, 0, 0.15);
       width: 310px;
       display: flex;
       flex-direction: column;
@@ -171,7 +175,6 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
       animation: sfFadeIn 0.15s ease-out;
       font-size: 13px;
       color: #0f172a;
-      z-index: 2147483647;
     }
     .save-header {
       padding: 10px 14px;
@@ -326,14 +329,31 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
     }
   });
 
-  // Reposition on window scroll or resize
-  window.addEventListener('scroll', () => {
+  // Reposition on window or ANY element scroll (modal dialogs, drawers, overlays)
+  document.addEventListener('scroll', () => {
     if (activeElement) repositionTooltip(activeElement);
-  }, { passive: true });
+  }, { passive: true, capture: true });
 
   window.addEventListener('resize', () => {
     if (activeElement) repositionTooltip(activeElement);
   }, { passive: true });
+}
+
+export function ensureHostAttached(targetEl?: HTMLElement) {
+  if (!hostElement) {
+    initTooltip();
+  }
+  if (!hostElement) return;
+
+  // If targetEl is inside a native <dialog>, hostElement MUST be inside that <dialog>
+  // so it shares the browser's top-layer stacking context.
+  // Otherwise, attach to document.documentElement so it's immune to document.body styling.
+  const dialog = targetEl?.closest('dialog');
+  const targetParent = dialog || document.documentElement || document.body;
+
+  if (hostElement.parentElement !== targetParent) {
+    targetParent.appendChild(hostElement);
+  }
 }
 
 export function showTooltip(
@@ -341,6 +361,7 @@ export function showTooltip(
   match: FieldMatch,
   callbacks: TooltipCallbacks
 ) {
+  ensureHostAttached(targetEl);
   if (!shadowRoot) return;
 
   const fieldId = targetEl.getAttribute('data-smartform-id') || '';
@@ -351,7 +372,7 @@ export function showTooltip(
   activeElement = targetEl;
 
   // Remove existing popup if any
-  const oldPopup = shadowRoot.querySelector('.popup-card');
+  const oldPopup = shadowRoot.querySelector('.popup-card, .save-card');
   if (oldPopup) oldPopup.remove();
 
   const popup = document.createElement('div');
@@ -442,6 +463,7 @@ export function showSavePrompt(
   targetEl: HTMLElement,
   options: SavePromptOptions
 ) {
+  ensureHostAttached(targetEl);
   if (!shadowRoot) return;
 
   activeElement = targetEl;
@@ -551,27 +573,42 @@ function repositionTooltip(targetEl: HTMLElement) {
   if (!popup) return;
 
   const rect = targetEl.getBoundingClientRect();
-  const scrollX = window.scrollX || window.pageXOffset;
-  const scrollY = window.scrollY || window.pageYOffset;
 
-  let top = rect.bottom + scrollY + 4;
-  let left = rect.left + scrollX;
+  // If the target element is detached or hidden (e.g. modal closed)
+  if (rect.width === 0 && rect.height === 0) {
+    popup.style.display = 'none';
+    return;
+  }
 
-  // Ensure within horizontal screen bounds
+  // If scrolled completely out of current viewport
+  if (rect.bottom < 0 || rect.top > window.innerHeight || rect.right < 0 || rect.left > window.innerWidth) {
+    popup.style.display = 'none';
+    return;
+  }
+
+  popup.style.display = 'flex';
+
   const popupWidth = popup.offsetWidth || 310;
-  if (left + popupWidth > window.innerWidth + scrollX - 16) {
-    left = window.innerWidth + scrollX - popupWidth - 16;
-  }
-  if (left < scrollX + 8) left = scrollX + 8;
-
-  // If close to bottom of screen, show above input
   const popupHeight = popup.offsetHeight || 260;
-  if (rect.bottom + popupHeight > window.innerHeight && rect.top > popupHeight) {
-    top = rect.top + scrollY - popupHeight - 4;
-  }
 
-  popup.style.top = `${top}px`;
-  popup.style.left = `${left}px`;
+  // Viewport-relative positioning (matches position: fixed)
+  let top = rect.bottom + 6;
+  let left = rect.left;
+
+  // Keep within horizontal screen bounds
+  if (left + popupWidth > window.innerWidth - 12) {
+    left = window.innerWidth - popupWidth - 12;
+  }
+  if (left < 8) left = 8;
+
+  // If close to bottom of screen or not enough space below, flip above input
+  if (top + popupHeight > window.innerHeight - 8 && rect.top > popupHeight + 12) {
+    top = rect.top - popupHeight - 6;
+  }
+  if (top < 8) top = 8;
+
+  popup.style.top = `${Math.round(top)}px`;
+  popup.style.left = `${Math.round(left)}px`;
 }
 
 function escapeHtml(str: string): string {
