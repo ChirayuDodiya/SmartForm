@@ -291,8 +291,18 @@ function performScan() {
 function attachEventListeners() {
   document.addEventListener('focusin', handleElementInteraction, true);
   document.addEventListener('click', handleElementInteraction, true);
+  document.addEventListener('input', handleFieldInput, true);
   document.addEventListener('change', handleFieldChangeOrBlur, true);
   document.addEventListener('blur', handleFieldChangeOrBlur, true);
+}
+
+function handleFieldInput(e: Event) {
+  const target = e.target as HTMLElement;
+  if (!target || !['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
+  const currentVal = (target as HTMLInputElement | HTMLTextAreaElement).value;
+  if (currentVal && currentVal.trim().length > 0) {
+    hideTooltip();
+  }
 }
 
 let savePromptDebounceTimer: any = null;
@@ -443,6 +453,15 @@ async function handleElementInteraction(e: Event) {
   }
 
   if (target instanceof HTMLInputElement && target.type === 'password') {
+    hideTooltip();
+    return;
+  }
+
+  // Never show suggestions if field already has a value
+  const currentVal = target instanceof HTMLInputElement && target.type === 'file'
+    ? (target.files?.length ? 'has_files' : '')
+    : (target as HTMLInputElement | HTMLTextAreaElement).value;
+  if (currentVal && currentVal.trim().length > 0) {
     hideTooltip();
     return;
   }

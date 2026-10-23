@@ -369,6 +369,14 @@ export function showTooltip(
     return;
   }
 
+  // Never show suggestions if field already has content
+  const currentVal = targetEl instanceof HTMLInputElement && targetEl.type === 'file'
+    ? (targetEl.files?.length ? 'has_files' : '')
+    : (targetEl as HTMLInputElement | HTMLTextAreaElement).value;
+  if (currentVal && currentVal.trim().length > 0) {
+    return;
+  }
+
   activeElement = targetEl;
 
   // Remove existing popup if any
