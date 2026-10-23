@@ -13,6 +13,8 @@ import {
   DOCUMENT_CATEGORY_KEYWORDS,
   AUTOCOMPLETE_TO_CANONICAL
 } from './aliases';
+import { generateEmbedding, cosineSimilarity } from './vector';
+import { describeWebField } from './ai';
 
 export interface MatchOptions {
   fields: PersonalField[];
@@ -21,6 +23,7 @@ export interface MatchOptions {
 }
 
 export const PERSONAL_NAME_CANONICALS = new Set(['First Name', 'Surname', 'Full Name']);
+export const VECTOR_MATCH_THRESHOLD = 0.72;
 
 /**
  * Detects if a field is explicitly for non-human/non-personal entities
@@ -220,6 +223,149 @@ export function matchField(
         }
       }
     }
+  }
+
+  // 7. Vector Embedding & AI Description Matching (Confidence: 72..95)
+  // Generates semantic description of the web field, embeds it, and compares cosine similarity with stored field descriptions
+  const webDesc = buildQuickWebFieldDescription(signals);
+  const webEmbedding = generateEmbedding(webDesc);
+
+  let bestVectorField: PersonalField | null = null;
+  let highestSimilarity = 0;
+
+  for (const field of options.fields) {
+    if (isNonPersonal && PERSONAL_NAME_CANONICALS.has(field.key)) continue;
+
+    const fieldEmbedding = field.embedding && field.embedding.length > 0
+      ? field.embedding
+      : generateEmbedding(`${field.description || ''} ${field.key}`);
+
+    const sim = cosineSimilarity(webEmbedding, fieldEmbedding);
+    if (sim > highestSimilarity) {
+      highestSimilarity = sim;
+      bestVectorField = field;
+    }
+  }
+
+  if (bestVectorField && highestSimilarity >= VECTOR_MATCH_THRESHOLD) {
+    const confidence = Math.round(highestSimilarity * 100);
+    return buildFieldMatch(
+      fieldId,
+      bestVectorField,
+      'vector_embedding',
+      confidence,
+      `Matched via AI vector embedding (${confidence}% similarity): "${webDesc}" → "${bestVectorField.description || bestVectorField.key}"`
+    );
+  }
+
+  return null;
+}
+
+/**
+ * Generates a quick contextual description of the web form field.
+ */
+export function buildQuickWebFieldDescription(signals: FieldSignals): string {
+  const label = signals.labelText || signals.ariaLabel || '';
+  const placeholder = signals.placeholder || '';
+  const name = signals.cleanNameKeyword || signals.name || '';
+  const id = signals.cleanIdKeyword || signals.id || '';
+  const combined = [label, placeholder, name, id].filter(Boolean).join(' ').toLowerCase();
+
+  // Software & Code Repositories
+  if (/\b(repo|repository|project|package|branch|commit|codebase)\b/i.test(combined)) {
+    return "Git code repository, project name, or software package identifier.";
+  }
+
+  // Database & Systems
+  if (/\b(database|table|column|schema|sql|hostname|server|cluster)\b/i.test(combined)) {
+    return "Database table, schema, backend host, or server infrastructure name.";
+  }
+
+  // Media & Music
+  if (/\b(song|track|playlist|artist|album|video|audio)\b/i.test(combined)) {
+    return "Media title, playlist name, music track, or audio artist.";
+  }
+
+  // Personal Names
+  if (/\b(first\s*name|given\s*name|forename|fname)\b/i.test(combined)) {
+    return "Candidate's given first name for personal identification and job application.";
+  }
+  if (/\b(last\s*name|surname|family\s*name|lname)\b/i.test(combined)) {
+    return "Candidate's family surname or last name for official records.";
+  }
+  if (/\b(full\s*name|complete\s*name|your\s*name|applicant\s*name)\b/i.test(combined)) {
+    return "Candidate's full legal name including first and last names.";
+  }
+
+  // Contact
+  if (/\b(email|e-mail|mail)\b/i.test(combined)) {
+    return "Personal or business email address for contact and communications.";
+  }
+  if (/\b(phone|mobile|cell|telephone|tel)\b/i.test(combined)) {
+    return "Contact telephone or mobile phone number.";
+  }
+
+  // Professional Links
+  if (/linkedin/i.test(combined)) {
+    return "LinkedIn public member profile URL for candidate background.";
+  }
+  if (/github/i.test(combined)) {
+    return "GitHub developer profile URL showing open-source projects.";
+  }
+  if (/portfolio|website/i.test(combined)) {
+    return "Candidate's personal portfolio or website showcasing projects.";
+  }
+
+  // Address
+  if (/\b(address|street|residence)\b/i.test(combined)) {
+    return "Mailing address and street location.";
+  }
+
+  return `Web form field for ${label || placeholder || name || id || 'personal input'}.`;
+}
+
+/**
+ * Asynchronous vector matching that uses Chrome Built-in AI to describe web fields if available.
+ */
+export async function matchFieldWithAIVector(
+  fieldId: string,
+  signals: FieldSignals,
+  options: MatchOptions
+): Promise<FieldMatch | null> {
+  // First run standard fast heuristic matching
+  const fastMatch = matchField(fieldId, signals, options);
+  if (fastMatch) return fastMatch;
+
+  const isNonPersonal = isNonPersonalEntityField(signals);
+  const webDesc = await describeWebField(signals);
+  const webEmbedding = generateEmbedding(webDesc);
+
+  let bestVectorField: PersonalField | null = null;
+  let highestSimilarity = 0;
+
+  for (const field of options.fields) {
+    if (isNonPersonal && PERSONAL_NAME_CANONICALS.has(field.key)) continue;
+
+    const fieldEmbedding = field.embedding && field.embedding.length > 0
+      ? field.embedding
+      : generateEmbedding(`${field.description || ''} ${field.key}`);
+
+    const sim = cosineSimilarity(webEmbedding, fieldEmbedding);
+    if (sim > highestSimilarity) {
+      highestSimilarity = sim;
+      bestVectorField = field;
+    }
+  }
+
+  if (bestVectorField && highestSimilarity >= VECTOR_MATCH_THRESHOLD) {
+    const confidence = Math.round(highestSimilarity * 100);
+    return buildFieldMatch(
+      fieldId,
+      bestVectorField,
+      'vector_embedding',
+      confidence,
+      `Matched via AI vector embedding (${confidence}% similarity): "${webDesc}" → "${bestVectorField.description || bestVectorField.key}"`
+    );
   }
 
   return null;

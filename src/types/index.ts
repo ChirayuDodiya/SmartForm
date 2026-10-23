@@ -9,6 +9,8 @@ export interface PersonalField {
   id: string;
   key: string; // Canonical key, e.g., "First Name", "Surname", "Email"
   category: string; // e.g., "Personal", "Job Applications", "Academic"
+  description?: string; // AI-generated or user-provided semantic description
+  embedding?: number[]; // Local vector embedding for semantic matching
   values: FieldValueItem[];
   updatedAt: number;
 }
@@ -70,6 +72,7 @@ export type MatchType =
   | 'user_alias' 
   | 'builtin_alias' 
   | 'semantic' 
+  | 'vector_embedding'
   | 'autocomplete' 
   | 'document_category';
 

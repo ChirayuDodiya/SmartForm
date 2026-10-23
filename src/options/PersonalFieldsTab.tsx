@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../storage/db';
 import { PersonalField, FieldValueItem } from '../types';
 import { suggestAliases } from '../engine/aliases';
+import { generateFieldMetadata } from '../engine/ai';
 import { 
   Plus, 
   Trash2, 
@@ -22,6 +23,8 @@ export default function PersonalFieldsTab() {
   // Form state
   const [fieldKey, setFieldKey] = useState('');
   const [category, setCategory] = useState('Personal');
+  const [description, setDescription] = useState('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [values, setValues] = useState<FieldValueItem[]>([
     { id: 'v-' + Date.now(), label: 'Primary', value: '', isDefault: true }
   ]);
@@ -83,10 +86,28 @@ export default function PersonalFieldsTab() {
     setAcceptedAliases([]);
   }
 
+  async function handleGenerateAIDescription() {
+    if (!fieldKey.trim()) return;
+    setIsGeneratingAI(true);
+    try {
+      const primaryVal = values.find(v => v.value.trim().length > 0)?.value || '';
+      const meta = await generateFieldMetadata(fieldKey, primaryVal);
+      setDescription(meta.description);
+      if (!category || category === 'Personal') {
+        setCategory(meta.category);
+      }
+    } catch (err) {
+      console.error('AI generation error:', err);
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  }
+
   function openAddModal() {
     setEditingFieldId(null);
     setFieldKey('');
     setCategory('Personal');
+    setDescription('');
     setValues([{ id: 'v-' + Date.now(), label: 'Primary', value: '', isDefault: true }]);
     setSuggestedAliasesList([]);
     setAcceptedAliases([]);
@@ -97,6 +118,7 @@ export default function PersonalFieldsTab() {
     setEditingFieldId(field.id);
     setFieldKey(field.key);
     setCategory(field.category);
+    setDescription(field.description || '');
     setValues(field.values.map(v => ({ ...v })));
     const suggestions = suggestAliases(field.key);
     setSuggestedAliasesList(suggestions);
@@ -127,6 +149,7 @@ export default function PersonalFieldsTab() {
       id: editingFieldId || 'field-' + Date.now(),
       key: fieldKey.trim(),
       category: category.trim() || 'Personal',
+      description: description.trim() || undefined,
       values: validValues,
       updatedAt: Date.now()
     };
@@ -218,6 +241,12 @@ export default function PersonalFieldsTab() {
                 </span>
               </div>
 
+              {field.description && (
+                <p className="text-[11px] text-slate-500 italic mb-2 line-clamp-2" title={field.description}>
+                  ✨ {field.description}
+                </p>
+              )}
+
               <div className="space-y-1.5 mt-3">
                 {field.values.map(v => (
                   <div key={v.id} className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs">
@@ -285,6 +314,29 @@ export default function PersonalFieldsTab() {
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-sky-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    AI Semantic Description
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAIDescription}
+                    disabled={isGeneratingAI || !fieldKey.trim()}
+                    className="text-[11px] text-sky-600 hover:text-sky-700 font-medium flex items-center gap-1 disabled:opacity-40"
+                  >
+                    <Sparkles className="w-3 h-3 text-sky-500" />
+                    <span>{isGeneratingAI ? 'Generating...' : 'Auto-Generate with AI'}</span>
+                  </button>
+                </div>
+                <textarea
+                  placeholder="Concise description explaining what this field represents (used for vector embedding matching)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-sky-500 resize-none h-16"
                 />
               </div>
 

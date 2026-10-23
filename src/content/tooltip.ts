@@ -455,7 +455,8 @@ export interface SavePromptOptions {
   suggestedKey: string;
   value: string;
   suggestedCategory?: string;
-  onSave: (key: string, value: string, category: string) => Promise<void> | void;
+  suggestedDescription?: string;
+  onSave: (key: string, value: string, category: string, description?: string) => Promise<void> | void;
   onDismiss: () => void;
 }
 
@@ -493,6 +494,10 @@ export function showSavePrompt(
         <input type="text" class="save-input field-key-input" value="${escapeHtml(options.suggestedKey)}" placeholder="e.g. Portfolio URL" />
       </div>
       <div>
+        <div class="save-label">AI Semantic Description</div>
+        <input type="text" class="save-input field-desc-input" value="${escapeHtml(options.suggestedDescription || '')}" placeholder="e.g. User's portfolio link" />
+      </div>
+      <div>
         <div class="save-label">Category</div>
         <select class="save-select category-select">
           <option value="Personal" ${options.suggestedCategory === 'Personal' ? 'selected' : ''}>Personal</option>
@@ -512,6 +517,7 @@ export function showSavePrompt(
   const dismissBtn = card.querySelector('.btn-dismiss') as HTMLButtonElement;
   const saveBtn = card.querySelector('.btn-save') as HTMLButtonElement;
   const keyInput = card.querySelector('.field-key-input') as HTMLInputElement;
+  const descInput = card.querySelector('.field-desc-input') as HTMLInputElement;
   const catSelect = card.querySelector('.category-select') as HTMLSelectElement;
 
   const handleDismiss = (e?: Event) => {
@@ -526,13 +532,14 @@ export function showSavePrompt(
   saveBtn?.addEventListener('click', async (e) => {
     e.stopPropagation();
     const finalKey = keyInput?.value.trim() || options.suggestedKey || 'Custom Field';
+    const finalDesc = descInput?.value.trim() || options.suggestedDescription || '';
     const finalCat = catSelect?.value || options.suggestedCategory || 'Personal';
 
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
 
     try {
-      await options.onSave(finalKey, options.value, finalCat);
+      await options.onSave(finalKey, options.value, finalCat, finalDesc);
 
       const body = card.querySelector('.save-body');
       const footer = card.querySelector('.save-footer');

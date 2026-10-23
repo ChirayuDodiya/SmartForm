@@ -5,6 +5,7 @@ import {
   AppSettings
 } from '../types';
 import { BUILTIN_ALIAS_GROUPS } from '../engine/aliases';
+import { generateEmbedding } from '../engine/vector';
 
 const DB_NAME = 'SmartFormVaultDB';
 const DB_VERSION = 1;
@@ -22,6 +23,8 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     id: 'init-fname',
     key: 'First Name',
     category: 'Personal',
+    description: "User's given first name for personal identification and official applications.",
+    embedding: generateEmbedding("User's given first name for personal identification and official applications. First Name"),
     values: [{ id: 'val-1', label: 'Primary', value: 'Alex', isDefault: true }],
     updatedAt: Date.now()
   },
@@ -29,6 +32,8 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     id: 'init-lname',
     key: 'Surname',
     category: 'Personal',
+    description: "User's family surname or last name for identity records and applications.",
+    embedding: generateEmbedding("User's family surname or last name for identity records and applications. Surname"),
     values: [{ id: 'val-2', label: 'Primary', value: 'Morgan', isDefault: true }],
     updatedAt: Date.now()
   },
@@ -36,6 +41,8 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     id: 'init-email',
     key: 'Email',
     category: 'Personal',
+    description: "User's electronic mail address for contact and correspondence.",
+    embedding: generateEmbedding("User's electronic mail address for contact and correspondence. Email"),
     values: [
       { id: 'val-3', label: 'Personal', value: 'alex.morgan@example.com', isDefault: true },
       { id: 'val-4', label: 'Work/College', value: 'alex@university.edu' }
@@ -46,6 +53,8 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     id: 'init-phone',
     key: 'Phone',
     category: 'Personal',
+    description: "User's mobile or telephone number for voice calls and text messages.",
+    embedding: generateEmbedding("User's mobile or telephone number for voice calls and text messages. Phone"),
     values: [{ id: 'val-5', label: 'Mobile', value: '+1 (555) 019-2834', isDefault: true }],
     updatedAt: Date.now()
   },
@@ -53,6 +62,8 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     id: 'init-linkedin',
     key: 'LinkedIn',
     category: 'Job Applications',
+    description: "User's LinkedIn professional profile link for career and networking.",
+    embedding: generateEmbedding("User's LinkedIn professional profile link for career and networking. LinkedIn"),
     values: [{ id: 'val-6', label: 'Profile', value: 'https://linkedin.com/in/alex-morgan', isDefault: true }],
     updatedAt: Date.now()
   },
@@ -60,6 +71,8 @@ const DEFAULT_INITIAL_FIELDS: PersonalField[] = [
     id: 'init-github',
     key: 'GitHub',
     category: 'Job Applications',
+    description: "User's GitHub developer profile link displaying code repositories and projects.",
+    embedding: generateEmbedding("User's GitHub developer profile link displaying code repositories and projects. GitHub"),
     values: [{ id: 'val-7', label: 'Profile', value: 'https://github.com/alexmorgan', isDefault: true }],
     updatedAt: Date.now()
   }
@@ -119,6 +132,16 @@ class SmartFormDatabase {
       for (const field of DEFAULT_INITIAL_FIELDS) {
         await this.saveField(field);
       }
+    } else {
+      // Backfill description and vector embedding for any existing fields missing them
+      for (const field of fields) {
+        if (!field.description || !field.embedding || field.embedding.length === 0) {
+          const matchDefault = DEFAULT_INITIAL_FIELDS.find(df => df.key.toLowerCase() === field.key.toLowerCase());
+          field.description = field.description || matchDefault?.description || `User's stored personal data for "${field.key}".`;
+          field.embedding = generateEmbedding(field.description + ' ' + field.key);
+          await this.saveField(field);
+        }
+      }
     }
 
     const aliases = await this.getAliases();
@@ -151,6 +174,14 @@ class SmartFormDatabase {
   }
 
   async saveField(field: PersonalField): Promise<void> {
+    // Ensure embedding is computed from description and key
+    if (!field.embedding || field.embedding.length === 0) {
+      const textToEmbed = `${field.description || ''} ${field.key}`.trim();
+      if (textToEmbed) {
+        field.embedding = generateEmbedding(textToEmbed);
+      }
+    }
+
     const db = await this.openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction('fields', 'readwrite');

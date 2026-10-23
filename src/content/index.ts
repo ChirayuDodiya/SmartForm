@@ -18,6 +18,8 @@ import {
 } from './tooltip';
 import { fillTextInput, fillFileInput } from './injector';
 import { suggestAliases } from '../engine/aliases';
+import { generateFieldMetadata } from '../engine/ai';
+import { generateEmbedding } from '../engine/vector';
 
 let cachedFields: PersonalField[] = [];
 let cachedAliases: AliasMapping[] = [];
@@ -122,7 +124,8 @@ async function saveAliasThroughBackground(canonicalKey: string, aliasText: strin
 async function saveNewFieldThroughBackground(
   canonicalKey: string,
   value: string,
-  category: string
+  category: string,
+  description?: string
 ): Promise<void> {
   if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage) {
     try {
@@ -133,6 +136,7 @@ async function saveNewFieldThroughBackground(
             canonicalKey,
             value,
             category,
+            description,
             label: 'Primary'
           },
           () => {
@@ -144,34 +148,45 @@ async function saveNewFieldThroughBackground(
       // Fall through to local db
     }
   }
-    // Standalone fallback
-    let field = cachedFields.find(f => f.key.toLowerCase() === canonicalKey.toLowerCase());
-    if (field) {
-      const exists = field.values.some(v => v.value.toLowerCase().trim() === value.toLowerCase().trim());
-      if (!exists) {
-        field.values.push({
-          id: 'val-' + Date.now(),
-          label: 'Additional',
-          value: value.trim()
-        });
-        await db.saveField(field);
-      }
-    } else {
-      field = {
-        id: 'field-' + Date.now(),
-        key: canonicalKey,
-        category,
-        values: [
-          {
-            id: 'val-' + Date.now(),
-            label: 'Primary',
-            value: value.trim(),
-            isDefault: true
-          }
-        ],
-        updatedAt: Date.now()
-      };
+  // Standalone fallback
+  let field = cachedFields.find(f => f.key.toLowerCase() === canonicalKey.toLowerCase());
+  if (field) {
+    const exists = field.values.some(v => v.value.toLowerCase().trim() === value.toLowerCase().trim());
+    if (!exists) {
+      field.values.push({
+        id: 'val-' + Date.now(),
+        label: 'Additional',
+        value: value.trim()
+      });
       await db.saveField(field);
+    }
+  } else {
+    let finalDesc = description;
+    let finalCat = category;
+    if (!finalDesc || !finalCat) {
+      const meta = await generateFieldMetadata(canonicalKey, value);
+      finalDesc = finalDesc || meta.description;
+      finalCat = finalCat || meta.category;
+    }
+    const embedding = generateEmbedding(`${finalDesc} ${canonicalKey}`);
+
+    field = {
+      id: 'field-' + Date.now(),
+      key: canonicalKey,
+      category: finalCat,
+      description: finalDesc,
+      embedding,
+      values: [
+        {
+          id: 'val-' + Date.now(),
+          label: 'Primary',
+          value: value.trim(),
+          isDefault: true
+        }
+      ],
+      updatedAt: Date.now()
+    };
+    await db.saveField(field);
 
       const suggested = suggestAliases(canonicalKey);
       for (const a of suggested) {
@@ -369,19 +384,37 @@ async function handleFieldChangeOrBlur(e: Event) {
 
     const suggestedKey = formatSuggestedFieldName(signals, matchedKey);
     let suggestedCat = 'Personal';
+    let suggestedDesc = '';
+
     if (matchedKey) {
       const existingField = cachedFields.find(f => f.key.toLowerCase() === matchedKey.toLowerCase());
-      if (existingField) suggestedCat = existingField.category;
+      if (existingField) {
+        suggestedCat = existingField.category;
+        suggestedDesc = existingField.description || '';
+      }
     } else {
       suggestedCat = formatSuggestedCategory(suggestedKey, signals);
+    }
+
+    if (!suggestedDesc) {
+      try {
+        const meta = await generateFieldMetadata(suggestedKey, val);
+        suggestedDesc = meta.description;
+        if (!matchedKey && meta.category) {
+          suggestedCat = meta.category;
+        }
+      } catch {
+        // Fall back gracefully
+      }
     }
 
     showSavePrompt(target, {
       suggestedKey,
       value: val,
       suggestedCategory: suggestedCat,
-      onSave: async (finalKey, finalValue, finalCat) => {
-        await saveNewFieldThroughBackground(finalKey, finalValue, finalCat);
+      suggestedDescription: suggestedDesc,
+      onSave: async (finalKey, finalValue, finalCat, finalDesc) => {
+        await saveNewFieldThroughBackground(finalKey, finalValue, finalCat, finalDesc);
         target.setAttribute('data-smartform-autofilled-val', finalValue);
       },
       onDismiss: () => {

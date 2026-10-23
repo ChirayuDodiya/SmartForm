@@ -1,5 +1,7 @@
 import { db } from '../storage/db';
 import { suggestAliases } from '../engine/aliases';
+import { generateFieldMetadata, describeWebField } from '../engine/ai';
+import { generateEmbedding } from '../engine/vector';
 
 // Extension Installation & Update Lifecycle
 chrome.runtime.onInstalled.addListener(async (details) => {
@@ -100,10 +102,34 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'GENERATE_FIELD_METADATA') {
+    (async () => {
+      try {
+        const metadata = await generateFieldMetadata(message.key, message.value);
+        sendResponse({ success: true, metadata });
+      } catch (err: any) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'DESCRIBE_WEB_FIELD') {
+    (async () => {
+      try {
+        const description = await describeWebField(message.signals);
+        sendResponse({ success: true, description });
+      } catch (err: any) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === 'SAVE_NEW_FIELD') {
     (async () => {
       try {
-        const { canonicalKey, value, category, label } = message;
+        const { canonicalKey, value, category, label, description } = message;
         await db.ensureInitialized();
         const fields = await db.getFields();
 
@@ -124,10 +150,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             await db.saveField(targetField);
           }
         } else {
+          // Generate AI metadata if not provided
+          let finalDesc = description;
+          let finalCat = category;
+          if (!finalDesc || !finalCat) {
+            const aiMeta = await generateFieldMetadata(cleanKey, cleanVal);
+            finalDesc = finalDesc || aiMeta.description;
+            finalCat = finalCat || aiMeta.category;
+          }
+
+          const embedding = generateEmbedding(`${finalDesc} ${cleanKey}`);
+
           targetField = {
             id: 'field-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
             key: cleanKey,
-            category: category || 'Personal',
+            category: finalCat || 'Personal',
+            description: finalDesc,
+            embedding,
             values: [
               {
                 id: 'val-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
