@@ -34,3 +34,38 @@ export function tokenize(text: string): string[] {
   if (!normalized) return [];
   return normalized.split(' ').filter(word => word.length > 0);
 }
+
+/**
+ * Normalizes a URL, domain, or hostname into a clean root domain
+ * e.g. "https://leetcode.com/problem" -> "leetcode.com"
+ * e.g. "www.leetcode.com" -> "leetcode.com"
+ */
+export function extractRootDomain(input: string): string {
+  if (!input) return '';
+  let str = input.trim().toLowerCase();
+  str = str.replace(/^[a-z]+:\/\//, '');
+  str = str.split('/')[0].split('?')[0].split('#')[0];
+  str = str.split(':')[0];
+  str = str.replace(/^www\./, '');
+  return str;
+}
+
+/**
+ * Checks if a current host or URL is matched by any excluded site in the list.
+ * Matches exact domain, subdomains, and root domains.
+ */
+export function isSiteExcluded(currentHost: string, disabledSites: string[]): boolean {
+  if (!disabledSites || !Array.isArray(disabledSites) || disabledSites.length === 0) {
+    return false;
+  }
+  const cleanCurrent = extractRootDomain(currentHost);
+  if (!cleanCurrent) return false;
+
+  return disabledSites.some(site => {
+    const cleanSite = extractRootDomain(site);
+    if (!cleanSite) return false;
+    return cleanCurrent === cleanSite ||
+           cleanCurrent.endsWith('.' + cleanSite) ||
+           cleanSite.endsWith('.' + cleanCurrent);
+  });
+}

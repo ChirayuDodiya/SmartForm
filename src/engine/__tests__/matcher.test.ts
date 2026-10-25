@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeText, tokenize } from '../normalizer';
+import { normalizeText, tokenize, extractRootDomain, isSiteExcluded } from '../normalizer';
 import { matchField } from '../matcher';
 import { suggestAliases } from '../aliases';
 import { PersonalField, AliasMapping, DocumentRecord, FieldSignals } from '../../types';
@@ -19,6 +19,30 @@ describe('Normalizer', () => {
 
   it('tokenizes correctly', () => {
     expect(tokenize('GitHub Profile URL')).toEqual(['github', 'profile', 'url']);
+  });
+
+  it('extracts root domain from URLs, subdomains, and paths', () => {
+    expect(extractRootDomain('https://leetcode.com/problem')).toBe('leetcode.com');
+    expect(extractRootDomain('www.leetcode.com')).toBe('leetcode.com');
+    expect(extractRootDomain('leetcode.com/problems/two-sum')).toBe('leetcode.com');
+    expect(extractRootDomain('http://sub.example.co.uk:8080/path')).toBe('sub.example.co.uk');
+  });
+
+  it('determines if a site or subpage is excluded', () => {
+    const disabled = ['leetcode.com'];
+
+    // All pages, subdomains, and URLs on leetcode should be excluded
+    expect(isSiteExcluded('leetcode.com', disabled)).toBe(true);
+    expect(isSiteExcluded('www.leetcode.com', disabled)).toBe(true);
+    expect(isSiteExcluded('https://leetcode.com/problems/two-sum', disabled)).toBe(true);
+    expect(isSiteExcluded('leetcode.com/problem', disabled)).toBe(true);
+
+    // Other sites must NOT be excluded
+    expect(isSiteExcluded('github.com', disabled)).toBe(false);
+    expect(isSiteExcluded('my-leetcode.com', disabled)).toBe(false);
+
+    // If disabled list contains a full URL, it still matches the root domain
+    expect(isSiteExcluded('leetcode.com', ['https://leetcode.com/problem'])).toBe(true);
   });
 });
 

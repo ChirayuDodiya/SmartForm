@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '../storage/db';
 import { PersonalField, FieldMatch } from '../types';
+import { extractRootDomain, isSiteExcluded } from '../engine/normalizer';
 import { 
   Sparkles, 
   ExternalLink, 
@@ -36,9 +37,10 @@ export default function Popup() {
           try {
             const url = new URL(activeTab.url);
             if (url.protocol === 'http:' || url.protocol === 'https:') {
-              setCurrentHost(url.hostname);
+              const root = extractRootDomain(url.hostname);
+              setCurrentHost(root);
               const settings = await db.getSettings();
-              setIsSiteDisabled(!!(settings.disabledSites && settings.disabledSites.includes(url.hostname)));
+              setIsSiteDisabled(isSiteExcluded(root, settings.disabledSites || []));
             }
           } catch {}
         }
@@ -50,11 +52,16 @@ export default function Popup() {
     if (!currentHost) return;
     const settings = await db.getSettings();
     const list = settings.disabledSites || [];
-    const exists = list.includes(currentHost);
-    const updated = exists ? list.filter(h => h !== currentHost) : [...list, currentHost];
+    const excluded = isSiteExcluded(currentHost, list);
+    const updated = excluded
+      ? list.filter(site => {
+          const clean = extractRootDomain(site);
+          return clean !== currentHost && !clean.endsWith('.' + currentHost) && !currentHost.endsWith('.' + clean);
+        })
+      : [...list, currentHost];
     await db.saveSettings({ disabledSites: updated });
-    setIsSiteDisabled(!exists);
-    if (!exists) {
+    setIsSiteDisabled(!excluded);
+    if (!excluded) {
       setDetectedMatches([]);
     } else {
       scanActiveTab();

@@ -2,6 +2,7 @@ import { db } from '../storage/db';
 import { suggestAliases } from '../engine/aliases';
 import { generateFieldMetadata, describeWebField } from '../engine/ai';
 import { generateEmbedding } from '../engine/vector';
+import { extractRootDomain, isSiteExcluded } from '../engine/normalizer';
 
 // Extension Installation & Update Lifecycle
 chrome.runtime.onInstalled.addListener(async (details) => {
@@ -128,11 +129,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'DISABLE_SITE_SUGGESTIONS') {
     (async () => {
+      const root = extractRootDomain(message.host);
       const settings = await db.getSettings();
       const disabledSites = settings.disabledSites || [];
-      if (!disabledSites.includes(message.host)) {
-        await db.saveSettings({ disabledSites: [...disabledSites, message.host] });
+      if (!isSiteExcluded(root, disabledSites)) {
+        await db.saveSettings({ disabledSites: [...disabledSites, root] });
       }
+      sendResponse({ success: true });
+      notifyTabsVaultUpdated();
+    })();
+    return true;
+  }
+
+  if (message.type === 'ENABLE_SITE_SUGGESTIONS') {
+    (async () => {
+      const root = extractRootDomain(message.host);
+      const settings = await db.getSettings();
+      const current = settings.disabledSites || [];
+      const updated = current.filter(site => {
+        const clean = extractRootDomain(site);
+        return clean !== root && !clean.endsWith('.' + root) && !root.endsWith('.' + clean);
+      });
+      await db.saveSettings({ disabledSites: updated });
       sendResponse({ success: true });
       notifyTabsVaultUpdated();
     })();

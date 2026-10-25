@@ -14,12 +14,15 @@ import {
   initTooltip, 
   showTooltip, 
   hideTooltip, 
-  showSavePrompt
+  showSavePrompt,
+  showDisabledSiteNotice,
+  showPageDisabledBanner
 } from './tooltip';
 import { fillTextInput, fillFileInput } from './injector';
 import { suggestAliases } from '../engine/aliases';
 import { generateFieldMetadata } from '../engine/ai';
 import { generateEmbedding } from '../engine/vector';
+import { extractRootDomain, isSiteExcluded } from '../engine/normalizer';
 
 let cachedFields: PersonalField[] = [];
 let cachedAliases: AliasMapping[] = [];
@@ -240,6 +243,14 @@ async function initContentScript() {
   // Attach focus, click, and blur/change listeners
   attachEventListeners();
 
+  // If this site was previously excluded, display subtle banner indicating disabled status with Enable button
+  if (isSiteDisabled()) {
+    const root = extractRootDomain(window.location.hostname);
+    showPageDisabledBanner(root, () => {
+      enableCurrentSite();
+    });
+  }
+
   // Observe dynamic form changes (SPAs)
   if (cachedSettings.enableDynamicForms) {
     setupMutationObserver();
@@ -278,26 +289,44 @@ async function initContentScript() {
 }
 
 function isSiteDisabled(): boolean {
-  if (!cachedSettings.disabledSites || !Array.isArray(cachedSettings.disabledSites)) {
-    return false;
-  }
-  const host = window.location.hostname.toLowerCase();
-  return cachedSettings.disabledSites.some(site => site.toLowerCase() === host);
+  return isSiteExcluded(window.location.hostname, cachedSettings.disabledSites || []);
 }
 
 function disableCurrentSite() {
-  const host = window.location.hostname;
+  const root = extractRootDomain(window.location.hostname);
   const currentDisabled = cachedSettings.disabledSites || [];
-  if (!currentDisabled.includes(host)) {
-    cachedSettings.disabledSites = [...currentDisabled, host];
+  if (!isSiteExcluded(root, currentDisabled)) {
+    cachedSettings.disabledSites = [...currentDisabled, root];
     if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
       chrome.runtime.sendMessage({
         type: 'DISABLE_SITE_SUGGESTIONS',
-        host
+        host: root
       });
     }
   }
   hideTooltip();
+  showPageDisabledBanner(root, () => {
+    enableCurrentSite();
+  });
+}
+
+function enableCurrentSite() {
+  const root = extractRootDomain(window.location.hostname);
+  const currentDisabled = cachedSettings.disabledSites || [];
+  const updated = currentDisabled.filter(site => {
+    const clean = extractRootDomain(site);
+    return clean !== root && !clean.endsWith('.' + root) && !root.endsWith('.' + clean);
+  });
+  cachedSettings.disabledSites = updated;
+
+  if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({
+      type: 'ENABLE_SITE_SUGGESTIONS',
+      host: root
+    });
+  }
+  hideTooltip();
+  performScan();
 }
 
 function performScan() {
@@ -464,9 +493,18 @@ async function handleElementInteraction(e: Event) {
     return;
   }
 
-  // Media / Entertainment site or user-disabled site: never show suggestions
-  if (isMediaOrEntertainmentSite() || isSiteDisabled()) {
+  // Media / Entertainment site ignore: never show suggestions on YouTube, Spotify, etc.
+  if (isMediaOrEntertainmentSite()) {
     hideTooltip();
+    return;
+  }
+
+  // Site disabled: show notice with Enable button, but suppress normal autofill suggestions
+  if (isSiteDisabled()) {
+    const root = extractRootDomain(window.location.hostname);
+    showDisabledSiteNotice(target, root, () => {
+      enableCurrentSite();
+    });
     return;
   }
 
