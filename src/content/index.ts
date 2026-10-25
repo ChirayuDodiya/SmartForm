@@ -329,7 +329,7 @@ function handleFieldInput(e: Event) {
 let savePromptDebounceTimer: any = null;
 
 async function handleFieldChangeOrBlur(e: Event) {
-  if (!cachedSettings.promptToSaveNewFields) {
+  if (!cachedSettings.promptToSaveNewFields || isSiteDisabled()) {
     return;
   }
 
@@ -343,8 +343,8 @@ async function handleFieldChangeOrBlur(e: Event) {
     return;
   }
 
-  // Media / Entertainment site ignore: never prompt to save searches or media on YouTube, Spotify, etc.
-  if (isMediaOrEntertainmentSite()) {
+  // Media / Entertainment site or excluded site ignore: never prompt to save
+  if (isMediaOrEntertainmentSite() || isSiteDisabled()) {
     return;
   }
 
@@ -393,6 +393,10 @@ async function handleFieldChangeOrBlur(e: Event) {
   savePromptDebounceTimer = setTimeout(async () => {
     // Refresh vault data to check latest records
     await syncVaultData();
+
+    if (isSiteDisabled()) {
+      return;
+    }
 
     // Check if this value is already stored in vault records
     if (isValueInRecords(val)) {
