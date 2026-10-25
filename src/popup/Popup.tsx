@@ -19,11 +19,47 @@ export default function Popup() {
   const [detectedMatches, setDetectedMatches] = useState<FieldMatch[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [fillStatus, setFillStatus] = useState<string | null>(null);
+  const [currentHost, setCurrentHost] = useState<string>('');
+  const [isSiteDisabled, setIsSiteDisabled] = useState(false);
 
   useEffect(() => {
     loadData();
+    detectActiveHost();
     scanActiveTab();
   }, []);
+
+  async function detectActiveHost() {
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+        const activeTab = tabs[0];
+        if (activeTab?.url) {
+          try {
+            const url = new URL(activeTab.url);
+            if (url.protocol === 'http:' || url.protocol === 'https:') {
+              setCurrentHost(url.hostname);
+              const settings = await db.getSettings();
+              setIsSiteDisabled(!!(settings.disabledSites && settings.disabledSites.includes(url.hostname)));
+            }
+          } catch {}
+        }
+      });
+    }
+  }
+
+  async function toggleSiteSuggestions() {
+    if (!currentHost) return;
+    const settings = await db.getSettings();
+    const list = settings.disabledSites || [];
+    const exists = list.includes(currentHost);
+    const updated = exists ? list.filter(h => h !== currentHost) : [...list, currentHost];
+    await db.saveSettings({ disabledSites: updated });
+    setIsSiteDisabled(!exists);
+    if (!exists) {
+      setDetectedMatches([]);
+    } else {
+      scanActiveTab();
+    }
+  }
 
   async function loadData() {
     await db.ensureInitialized();
@@ -139,17 +175,32 @@ export default function Popup() {
             <Sparkles className="w-4 h-4 text-sky-600" />
             <span className="text-xs font-semibold text-slate-700">Active Page Form</span>
           </div>
-          <button 
-            onClick={scanActiveTab} 
-            className="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1"
-            title="Rescan fields"
-          >
-            <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
-            <span>Rescan</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {currentHost && (
+              <button
+                onClick={toggleSiteSuggestions}
+                className={`text-[10px] font-medium px-2 py-0.5 rounded border transition ${
+                  isSiteDisabled
+                    ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+                title={isSiteDisabled ? "Suggestions are disabled on this site. Click to re-enable." : "Disable SmartForm suggestions for this website"}
+              >
+                {isSiteDisabled ? 'Disabled on site (Enable)' : 'Disable on this page'}
+              </button>
+            )}
+            <button 
+              onClick={scanActiveTab} 
+              className="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1"
+              title="Rescan fields"
+            >
+              <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+              <span>Rescan</span>
+            </button>
+          </div>
         </div>
 
-        {detectedMatches.length > 0 ? (
+        {!isSiteDisabled && detectedMatches.length > 0 ? (
           <div className="space-y-2">
             <div className="bg-sky-50 border border-sky-100 rounded-md p-2 flex items-center justify-between">
               <div>
@@ -170,7 +221,9 @@ export default function Popup() {
           </div>
         ) : (
           <div className="bg-slate-50 border border-slate-200 rounded-md p-2 text-center text-xs text-slate-500">
-            {isScanning ? 'Scanning page fields...' : 'No supported form fields detected on active page.'}
+            {isSiteDisabled
+              ? `Suggestions disabled on ${currentHost}. Click above to re-enable.`
+              : (isScanning ? 'Scanning page fields...' : 'No supported form fields detected on active page.')}
           </div>
         )}
       </div>

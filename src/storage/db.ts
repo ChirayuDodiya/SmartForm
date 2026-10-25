@@ -15,7 +15,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoShowSuggestions: true,
   confirmBeforeOverwrite: true,
   enableDynamicForms: true,
-  promptToSaveNewFields: true
+  promptToSaveNewFields: true,
+  disabledSites: []
 };
 
 const DEFAULT_INITIAL_FIELDS: PersonalField[] = [

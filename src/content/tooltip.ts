@@ -10,6 +10,7 @@ export interface TooltipCallbacks {
   onFillAll?: (formEl: HTMLFormElement | null) => void;
   onAddAlias?: (canonicalKey: string, aliasText: string) => void;
   getDocumentById?: (docId: string) => Promise<DocumentRecord | null>;
+  onDisableSite?: () => void;
 }
 
 export function initTooltip(_callbacks?: TooltipCallbacks) {
@@ -158,6 +159,17 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
       background: #0284c7;
       color: #fff;
       border-color: #0284c7;
+    }
+    .action-btn-danger {
+      color: #94a3b8;
+      background: transparent;
+      border: 1px solid transparent;
+      font-size: 10px;
+    }
+    .action-btn-danger:hover {
+      background: #fee2e2;
+      color: #dc2626;
+      border-color: #fca5a5;
     }
     /* Save to Vault Card */
     .save-card {
@@ -452,6 +464,17 @@ export function showTooltip(
     hideTooltip();
   });
   footer.appendChild(fillAllBtn);
+
+  const disableSiteBtn = document.createElement('button');
+  disableSiteBtn.className = 'action-btn action-btn-danger';
+  disableSiteBtn.textContent = 'Disable on this page';
+  disableSiteBtn.title = 'Disable SmartForm suggestions for this website';
+  disableSiteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (callbacks.onDisableSite) callbacks.onDisableSite();
+    hideTooltip();
+  });
+  footer.appendChild(disableSiteBtn);
 
   popup.appendChild(footer);
   shadowRoot.appendChild(popup);

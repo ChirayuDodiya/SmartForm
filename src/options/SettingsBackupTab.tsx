@@ -170,6 +170,34 @@ export default function SettingsBackupTab() {
               </span>
             </div>
           </label>
+
+          {settings.disabledSites && settings.disabledSites.length > 0 && (
+            <div className="pt-4 border-t border-slate-100">
+              <span className="text-xs font-semibold text-slate-700 block mb-2">
+                Disabled on Websites ({settings.disabledSites.length}):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {settings.disabledSites.map((site) => (
+                  <span
+                    key={site}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-100 text-slate-700 text-xs border border-slate-200"
+                  >
+                    <span>{site}</span>
+                    <button
+                      onClick={() => {
+                        const updated = (settings.disabledSites || []).filter((s) => s !== site);
+                        updateSetting('disabledSites', updated);
+                      }}
+                      className="text-slate-400 hover:text-rose-600 font-bold ml-1 leading-none"
+                      title="Re-enable suggestions on this website"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

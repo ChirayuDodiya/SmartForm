@@ -29,7 +29,8 @@ let cachedSettings: AppSettings = {
   autoShowSuggestions: true,
   confirmBeforeOverwrite: true,
   enableDynamicForms: true,
-  promptToSaveNewFields: true
+  promptToSaveNewFields: true,
+  disabledSites: []
 };
 
 const dismissedSavePrompts = new Set<string>();
@@ -276,8 +277,31 @@ async function initContentScript() {
   }
 }
 
+function isSiteDisabled(): boolean {
+  if (!cachedSettings.disabledSites || !Array.isArray(cachedSettings.disabledSites)) {
+    return false;
+  }
+  const host = window.location.hostname.toLowerCase();
+  return cachedSettings.disabledSites.some(site => site.toLowerCase() === host);
+}
+
+function disableCurrentSite() {
+  const host = window.location.hostname;
+  const currentDisabled = cachedSettings.disabledSites || [];
+  if (!currentDisabled.includes(host)) {
+    cachedSettings.disabledSites = [...currentDisabled, host];
+    if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage({
+        type: 'DISABLE_SITE_SUGGESTIONS',
+        host
+      });
+    }
+  }
+  hideTooltip();
+}
+
 function performScan() {
-  if (isMediaOrEntertainmentSite()) {
+  if (isMediaOrEntertainmentSite() || isSiteDisabled()) {
     return;
   }
 
@@ -440,8 +464,8 @@ async function handleElementInteraction(e: Event) {
     return;
   }
 
-  // Media / Entertainment site ignore: never show suggestions on YouTube, Spotify, etc.
-  if (isMediaOrEntertainmentSite()) {
+  // Media / Entertainment site or user-disabled site: never show suggestions
+  if (isMediaOrEntertainmentSite() || isSiteDisabled()) {
     hideTooltip();
     return;
   }
@@ -479,11 +503,12 @@ async function handleElementInteraction(e: Event) {
   }
 
   if (scanned && scanned.match && scanned.match.candidates.length > 0) {
-    if (cachedSettings.autoShowSuggestions) {
+    if (cachedSettings.autoShowSuggestions && !isSiteDisabled()) {
       showTooltip(target, scanned.match, {
         onFillAll: (formEl) => autofillRecognizedFields(formEl),
         getDocumentById: (id) => fetchDocumentById(id),
-        onAddAlias: (canonicalKey, aliasText) => saveAliasThroughBackground(canonicalKey, aliasText)
+        onAddAlias: (canonicalKey, aliasText) => saveAliasThroughBackground(canonicalKey, aliasText),
+        onDisableSite: () => disableCurrentSite()
       });
     }
   }

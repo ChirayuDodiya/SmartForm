@@ -99,6 +99,7 @@ export interface AppSettings {
   confirmBeforeOverwrite: boolean;
   enableDynamicForms: boolean;
   promptToSaveNewFields: boolean;
+  disabledSites?: string[];
 }
 
 export interface SmartFormBackup {

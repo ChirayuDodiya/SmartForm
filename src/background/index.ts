@@ -126,6 +126,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'DISABLE_SITE_SUGGESTIONS') {
+    (async () => {
+      const settings = await db.getSettings();
+      const disabledSites = settings.disabledSites || [];
+      if (!disabledSites.includes(message.host)) {
+        await db.saveSettings({ disabledSites: [...disabledSites, message.host] });
+      }
+      sendResponse({ success: true });
+      notifyTabsVaultUpdated();
+    })();
+    return true;
+  }
+
   if (message.type === 'SAVE_NEW_FIELD') {
     (async () => {
       try {
