@@ -171,86 +171,6 @@ export function initTooltip(_callbacks?: TooltipCallbacks) {
       color: #dc2626;
       border-color: #fca5a5;
     }
-    .disabled-notice-card {
-      position: fixed !important;
-      pointer-events: auto !important;
-      z-index: 2147483647 !important;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-      padding: 6px 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 12px;
-      color: #334155;
-      animation: sfFadeIn 0.15s ease-out;
-    }
-    .disabled-notice-content {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .disabled-badge {
-      color: #ef4444;
-      font-weight: 700;
-      font-size: 13px;
-    }
-    .disabled-notice-actions {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .btn-enable-site {
-      background: #0284c7;
-      color: #ffffff;
-      border: none;
-      border-radius: 4px;
-      padding: 3px 8px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.12s;
-    }
-    .btn-enable-site:hover {
-      background: #0369a1;
-    }
-    .btn-close-notice {
-      background: none;
-      border: none;
-      color: #94a3b8;
-      font-size: 14px;
-      cursor: pointer;
-      padding: 0 2px;
-      line-height: 1;
-    }
-    .btn-close-notice:hover {
-      color: #475569;
-    }
-    .page-disabled-banner {
-      position: fixed !important;
-      top: 16px !important;
-      right: 16px !important;
-      pointer-events: auto !important;
-      z-index: 2147483647 !important;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-      padding: 6px 12px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 12px;
-      color: #334155;
-      animation: sfFadeIn 0.2s ease-out;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-    }
-    .page-disabled-banner.fade-out {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
     /* Save to Vault Card */
     .save-card {
       position: fixed !important;
@@ -678,96 +598,16 @@ export function showSavePrompt(
   repositionTooltip(targetEl);
 }
 
-export function showDisabledSiteNotice(
-  targetEl: HTMLElement,
-  domain: string,
-  onEnable: () => void
-) {
-  ensureHostAttached(targetEl);
-  if (!shadowRoot) return;
-
-  activeElement = targetEl;
-
-  const oldPopup = shadowRoot.querySelector('.popup-card, .save-card, .disabled-notice-card');
-  if (oldPopup) oldPopup.remove();
-
-  const card = document.createElement('div');
-  card.className = 'disabled-notice-card';
-  card.innerHTML = `
-    <div class="disabled-notice-content">
-      <span class="disabled-badge">⊘</span>
-      <span>Suggestions disabled on <strong>${escapeHtml(domain)}</strong></span>
-    </div>
-    <div class="disabled-notice-actions">
-      <button class="btn-enable-site">Enable</button>
-      <button class="btn-close-notice" title="Dismiss">&times;</button>
-    </div>
-  `;
-
-  card.querySelector('.btn-close-notice')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    card.remove();
-  });
-
-  card.querySelector('.btn-enable-site')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    card.remove();
-    onEnable();
-  });
-
-  shadowRoot.appendChild(card);
-  repositionTooltip(targetEl);
-}
-
-export function showPageDisabledBanner(domain: string, onEnable: () => void) {
-  if (hostElement && !hostElement.parentElement) {
-    (document.documentElement || document.body).appendChild(hostElement);
-  }
-  if (!shadowRoot) return;
-
-  const existing = shadowRoot.querySelector('.page-disabled-banner');
-  if (existing) existing.remove();
-
-  const banner = document.createElement('div');
-  banner.className = 'page-disabled-banner';
-  banner.innerHTML = `
-    <span style="color: #ef4444; font-weight: bold; font-size: 13px;">⊘</span>
-    <span>SmartForm disabled on <strong>${escapeHtml(domain)}</strong></span>
-    <button class="btn-enable-site">Enable</button>
-    <button class="btn-close-notice" title="Dismiss">&times;</button>
-  `;
-
-  banner.querySelector('.btn-close-notice')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    banner.remove();
-  });
-
-  banner.querySelector('.btn-enable-site')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    banner.remove();
-    onEnable();
-  });
-
-  setTimeout(() => {
-    banner.classList.add('fade-out');
-    setTimeout(() => banner.remove(), 300);
-  }, 6000);
-
-  shadowRoot.appendChild(banner);
-}
-
 export function hideTooltip() {
   if (!shadowRoot) return;
-  const popup = shadowRoot.querySelector('.popup-card, .save-card, .disabled-notice-card');
+  const popup = shadowRoot.querySelector('.popup-card, .save-card');
   if (popup) popup.remove();
   activeElement = null;
 }
 
 function repositionTooltip(targetEl: HTMLElement) {
   if (!shadowRoot) return;
-  const popup = (shadowRoot.querySelector('.popup-card') || 
-                 shadowRoot.querySelector('.save-card') || 
-                 shadowRoot.querySelector('.disabled-notice-card')) as HTMLElement;
+  const popup = (shadowRoot.querySelector('.popup-card') || shadowRoot.querySelector('.save-card')) as HTMLElement;
   if (!popup) return;
 
   const rect = targetEl.getBoundingClientRect();

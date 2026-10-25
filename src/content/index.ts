@@ -14,9 +14,7 @@ import {
   initTooltip, 
   showTooltip, 
   hideTooltip, 
-  showSavePrompt,
-  showDisabledSiteNotice,
-  showPageDisabledBanner
+  showSavePrompt
 } from './tooltip';
 import { fillTextInput, fillFileInput } from './injector';
 import { suggestAliases } from '../engine/aliases';
@@ -243,14 +241,6 @@ async function initContentScript() {
   // Attach focus, click, and blur/change listeners
   attachEventListeners();
 
-  // If this site was previously excluded, display subtle banner indicating disabled status with Enable button
-  if (isSiteDisabled()) {
-    const root = extractRootDomain(window.location.hostname);
-    showPageDisabledBanner(root, () => {
-      enableCurrentSite();
-    });
-  }
-
   // Observe dynamic form changes (SPAs)
   if (cachedSettings.enableDynamicForms) {
     setupMutationObserver();
@@ -305,28 +295,6 @@ function disableCurrentSite() {
     }
   }
   hideTooltip();
-  showPageDisabledBanner(root, () => {
-    enableCurrentSite();
-  });
-}
-
-function enableCurrentSite() {
-  const root = extractRootDomain(window.location.hostname);
-  const currentDisabled = cachedSettings.disabledSites || [];
-  const updated = currentDisabled.filter(site => {
-    const clean = extractRootDomain(site);
-    return clean !== root && !clean.endsWith('.' + root) && !root.endsWith('.' + clean);
-  });
-  cachedSettings.disabledSites = updated;
-
-  if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-    chrome.runtime.sendMessage({
-      type: 'ENABLE_SITE_SUGGESTIONS',
-      host: root
-    });
-  }
-  hideTooltip();
-  performScan();
 }
 
 function performScan() {
@@ -493,18 +461,9 @@ async function handleElementInteraction(e: Event) {
     return;
   }
 
-  // Media / Entertainment site ignore: never show suggestions on YouTube, Spotify, etc.
-  if (isMediaOrEntertainmentSite()) {
+  // Media / Entertainment site or user-disabled site: never show suggestions
+  if (isMediaOrEntertainmentSite() || isSiteDisabled()) {
     hideTooltip();
-    return;
-  }
-
-  // Site disabled: show notice with Enable button, but suppress normal autofill suggestions
-  if (isSiteDisabled()) {
-    const root = extractRootDomain(window.location.hostname);
-    showDisabledSiteNotice(target, root, () => {
-      enableCurrentSite();
-    });
     return;
   }
 
